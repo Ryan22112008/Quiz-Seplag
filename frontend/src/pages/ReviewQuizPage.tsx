@@ -1,12 +1,14 @@
 import { useParams } from 'react-router-dom';
 import { ArrowLeft, Home, Edit2, Users, Clock, Trophy } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { ButtonLink } from '@/components/ui/ButtonLink';
+import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Container } from '@/components/layout/Container';
 import { useQuizStore } from '@/stores/quizStore';
 import { QUIZ_CATEGORIES } from '@/types/quiz';
+import { useRoomStore } from '@/stores/roomStore';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Quiz review page before publishing.
@@ -14,7 +16,9 @@ import { QUIZ_CATEGORIES } from '@/types/quiz';
  */
 export function ReviewQuizPage() {
   const { quizId } = useParams<{ quizId: string }>();
+  const navigate = useNavigate();
   const { getQuizById } = useQuizStore();
+  const createRoom = useRoomStore((state) => state.createRoom);
 
   const quiz = quizId ? getQuizById(quizId) : undefined;
 
@@ -46,10 +50,10 @@ export function ReviewQuizPage() {
   const totalTime = quiz.questions.reduce((sum, q) => sum + q.timeLimit, 0);
   const totalPoints = quiz.questions.reduce((sum, q) => sum + q.points, 0);
 
-  const handlePublish = () => {
-    // In this step, publishing is not implemented yet
-    // This will be connected to backend in future steps
-    alert('A criação de sala será implementada na próxima etapa com integração ao backend.');
+  const handleCreateRoom = () => {
+    if (!quizId || !getQuizById(quizId)) return;
+    createRoom(quizId);
+    navigate(`/criar/${quizId}/sala`);
   };
 
   return (
@@ -138,8 +142,8 @@ export function ReviewQuizPage() {
                 Editar perguntas
               </ButtonLink>
             </div>
-            <Button onClick={handlePublish} size="lg" className="w-full sm:w-auto">
-              Publicar / Criar sala
+            <Button onClick={handleCreateRoom} size="lg" className="w-full sm:w-auto">
+              Criar sala
             </Button>
           </div>
         </div>

@@ -13,7 +13,7 @@ const variants: Record<BadgeVariant, string> = {
   success: 'bg-success-50 text-success-700 ring-success-200',
   warning: 'bg-warning-50 text-warning-800 ring-warning-200',
   danger: 'bg-danger-50 text-danger-700 ring-danger-200',
-  neutral: 'bg-neutral-900 text-neutral-50 ring-neutral-900',
+  neutral: 'bg-neutral-200 text-neutral-800 ring-neutral-300',
 };
 
 export function Badge({ variant = 'default', className, ...rest }: BadgeProps) {

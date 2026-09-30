@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Zap } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import seplagLogo from '@/assets/logo-seplag-branco.png';
 
 export interface LogoProps {
   tagline?: string;
@@ -10,21 +10,15 @@ export interface LogoProps {
 }
 
 /**
- * Textual brand for the product: token-colored mark (Lucide glyph) + wordmark.
- * No external image/logo — only design system tokens and existing utilities.
+ * Official SEPLAG mark with the existing Quiz SEPLAG wordmark.
  */
 export function Logo({ tagline, to = '/', className }: LogoProps) {
   const content = (
     <>
-      <span
-        aria-hidden="true"
-        className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary-600 to-accent-500 text-white shadow-sm"
-      >
-        <Zap className="size-5" />
-      </span>
+      <img src={seplagLogo} alt="Logo SEPLAG" className="h-9 w-auto max-w-10 shrink-0 object-contain" />
       <span className="flex min-w-0 flex-col leading-tight">
         <span className="font-display text-base font-bold uppercase tracking-tight text-neutral-900">
-          Quiz <span className="text-primary-600">SEPLAG</span>
+          Quiz <span className="text-primary-400">SEPLAG</span>
         </span>
         {tagline && <span className="type-caption text-neutral-500">{tagline}</span>}
       </span>

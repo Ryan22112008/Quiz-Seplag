@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/Badge';
 import type { BadgeVariant } from '@/components/ui/Badge';
 
-export type GameStatusValue = 'waiting' | 'starting' | 'playing' | 'paused' | 'finished';
+export type GameStatusValue = 'waiting' | 'starting' | 'playing' | 'paused' | 'question' | 'locked' | 'results' | 'finished';
 
 export interface GameStatusProps {
   status: GameStatusValue;
@@ -13,6 +13,9 @@ const statusMap: Record<GameStatusValue, { label: string; variant: BadgeVariant 
   starting: { label: 'Iniciando', variant: 'primary' },
   playing: { label: 'Ao vivo', variant: 'success' },
   paused: { label: 'Pausado', variant: 'warning' },
+  question: { label: 'Pergunta aberta', variant: 'success' },
+  locked: { label: 'Pergunta encerrada', variant: 'warning' },
+  results: { label: 'Resultados', variant: 'primary' },
   finished: { label: 'Encerrado', variant: 'neutral' },
 };
 

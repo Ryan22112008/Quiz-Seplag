@@ -4,6 +4,7 @@ import { cn } from '@/lib/cn';
 
 export interface TimerProps {
   duration: number;
+  endsAt?: number | null;
   size?: 'sm' | 'md' | 'lg';
   label?: string;
   onExpire?: () => void;
@@ -17,25 +18,38 @@ const sizes = {
 } as const;
 
 /**
- * Visual countdown only — local interval for preview purposes.
- * Real sync with the server will be added in a later step.
+ * Uses an authoritative deadline when provided; duration-only consumers keep a local preview countdown.
  */
-export function Timer({ duration, size = 'md', label = 'Tempo restante', onExpire, className }: TimerProps) {
+export function Timer({ duration, endsAt, size = 'md', label = 'Tempo restante', onExpire, className }: TimerProps) {
   const safeDuration = Math.max(1, Math.floor(duration));
-  const [remaining, setRemaining] = useState(safeDuration);
+  const [legacyRemaining, setLegacyRemaining] = useState(safeDuration);
+  const [now, setNow] = useState(() => Date.now());
+  const remaining = endsAt != null
+    ? Math.max(0, Math.ceil((endsAt - now) / 1000))
+    : legacyRemaining;
 
   useEffect(() => {
-    setRemaining(safeDuration);
+    setLegacyRemaining(safeDuration);
   }, [safeDuration]);
 
   useEffect(() => {
-    if (remaining <= 0) {
+    if (endsAt != null) {
+      const currentTime = Date.now();
+      const millisecondsRemaining = endsAt - currentTime;
+      if (millisecondsRemaining <= 0) {
+        onExpire?.();
+        return;
+      }
+      const id = window.setTimeout(() => setNow(Date.now()), Math.min(1000, millisecondsRemaining));
+      return () => window.clearTimeout(id);
+    }
+    if (legacyRemaining <= 0) {
       onExpire?.();
       return;
     }
-    const id = window.setTimeout(() => setRemaining((value) => value - 1), 1000);
+    const id = window.setTimeout(() => setLegacyRemaining((value) => value - 1), 1000);
     return () => window.clearTimeout(id);
-  }, [remaining, onExpire]);
+  }, [endsAt, legacyRemaining, now, onExpire]);
 
   const fraction = remaining / safeDuration;
   const urgent = fraction <= 0.25;
@@ -51,6 +65,7 @@ export function Timer({ duration, size = 'md', label = 'Tempo restante', onExpir
         aria-valuemin={0}
         aria-valuemax={safeDuration}
         aria-valuenow={remaining}
+        aria-live="off"
         className={cn('relative inline-flex items-center justify-center', sizes[size].ring)}
       >
         <svg viewBox="0 0 64 64" className="absolute inset-0 size-full -rotate-90" aria-hidden="true">

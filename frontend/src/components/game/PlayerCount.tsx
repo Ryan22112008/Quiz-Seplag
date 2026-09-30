@@ -14,7 +14,7 @@ export function PlayerCount({ count, max, label = 'Jogadores', className }: Play
     <span
       aria-label={max ? `${count} de ${max} ${label.toLowerCase()}` : `${count} ${label.toLowerCase()}`}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full bg-neutral-900 px-3 py-1.5 text-sm font-semibold text-white tabular-nums',
+        'inline-flex items-center gap-1.5 rounded-full bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white tabular-nums',
         className,
       )}
     >

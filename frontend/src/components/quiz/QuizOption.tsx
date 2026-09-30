@@ -36,7 +36,8 @@ export function QuizOption({
   onSelect,
   className,
 }: QuizOptionProps) {
-  const effectiveState: QuizOptionState = disabled ? 'disabled' : state;
+  const preservesAnswerState = state === 'correct' || state === 'incorrect' || (state === 'selected' && selected);
+  const effectiveState: QuizOptionState = disabled && !preservesAnswerState ? 'disabled' : state;
   const pressed = selected || state === 'selected';
 
   return (

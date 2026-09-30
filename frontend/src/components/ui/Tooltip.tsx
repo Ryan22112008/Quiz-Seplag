@@ -35,7 +35,7 @@ export function Tooltip({ content, children, position = 'top', className }: Tool
           id={tooltipId}
           role="tooltip"
           className={cn(
-            'animate-fade-in pointer-events-none absolute z-40 max-w-60 rounded-lg bg-neutral-900 px-2.5 py-1.5 text-xs leading-4 font-medium whitespace-normal text-white shadow-lg',
+            'animate-fade-in pointer-events-none absolute z-40 max-w-60 rounded-lg bg-surface-inverse px-2.5 py-1.5 text-xs leading-4 font-medium whitespace-normal text-neutral-900 shadow-lg',
             positions[position],
           )}
         >

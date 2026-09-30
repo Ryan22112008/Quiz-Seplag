@@ -6,8 +6,11 @@ import {
   EditQuizQuestionsPage,
   GameLobbyPage,
   HomePage,
+  HostGamePage,
+  HostLobbyPage,
   JoinGamePage,
   ReviewQuizPage,
+  PlayerGamePage,
 } from '@/pages';
 
 export function AppRoutes() {
@@ -19,10 +22,13 @@ export function AppRoutes() {
       {/* Room entry flow */}
       <Route path="/jogar/:pin" element={<JoinGamePage />} />
       <Route path="/jogar/:pin/aguardando" element={<GameLobbyPage />} />
+      <Route path="/jogar/:pin/partida" element={<PlayerGamePage />} />
       {/* Quiz creation flow */}
       <Route path="/criar" element={<CreateQuizPage />} />
       <Route path="/criar/:quizId/perguntas" element={<EditQuizQuestionsPage />} />
       <Route path="/criar/:quizId/revisar" element={<ReviewQuizPage />} />
+      <Route path="/criar/:quizId/sala" element={<HostLobbyPage />} />
+      <Route path="/criar/:quizId/partida" element={<HostGamePage />} />
       <Route
         path="/login"
         element={

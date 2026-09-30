@@ -39,7 +39,7 @@ export function RankingItem({ position, name, score, avatarSrc, highlighted = fa
         {position === 1 ? <Crown className="size-4" aria-hidden="true" /> : position}
       </span>
       <Avatar name={name} src={avatarSrc} size="sm" />
-      <span className="type-body min-w-0 flex-1 truncate font-medium text-neutral-900">
+      <span title={name} className="type-body min-w-0 flex-1 truncate font-medium text-neutral-900">
         {name}
         {streak !== undefined && streak > 1 && (
           <span className="ml-2 rounded-full bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-800">

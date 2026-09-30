@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Copy, Hash } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useToastStore } from '@/components/ui/useToastStore';
 
 export interface GamePinProps {
   pin: string;
@@ -12,17 +13,19 @@ export interface GamePinProps {
 const sizes = {
   sm: 'px-3 py-1.5 text-lg gap-2',
   md: 'px-5 py-3 text-2xl gap-3',
-  lg: 'px-8 py-4 text-4xl gap-3',
+  lg: 'px-3 py-3 text-2xl gap-2 sm:px-8 sm:py-4 sm:text-4xl sm:gap-3',
 } as const;
 
 /** Large, high-legibility room PIN. Copy is local-only (clipboard), no backend. */
 export function GamePin({ pin, size = 'md', allowCopy = true, className }: GamePinProps) {
   const [copied, setCopied] = useState(false);
+  const pushToast = useToastStore((state) => state.push);
 
   const onCopy = async () => {
     try {
       await navigator.clipboard.writeText(pin);
       setCopied(true);
+      pushToast({ variant: 'success', title: 'PIN copiado!' });
       window.setTimeout(() => setCopied(false), 1600);
     } catch {
       setCopied(false);
@@ -36,12 +39,12 @@ export function GamePin({ pin, size = 'md', allowCopy = true, className }: GameP
         <span
           aria-label={`PIN da sala: ${pin.split('').join(' ')}`}
           className={cn(
-            'inline-flex items-center rounded-2xl border border-border bg-surface font-display font-bold tracking-[0.2em] text-neutral-900 tabular-nums shadow-sm',
+            'inline-flex items-center rounded-2xl border border-border bg-surface font-display font-bold tracking-[0.12em] text-neutral-900 tabular-nums shadow-sm sm:tracking-[0.2em]',
             sizes[size],
           )}
         >
           <Hash className="size-[1em] shrink-0 text-primary-500" aria-hidden="true" />
-          {pin}
+          {pin.slice(0, 3)} {pin.slice(3)}
         </span>
         {allowCopy && (
           <button
@@ -55,6 +58,7 @@ export function GamePin({ pin, size = 'md', allowCopy = true, className }: GameP
             ) : (
               <Copy className="size-5" aria-hidden="true" />
             )}
+            <span className="text-sm font-semibold">{copied ? 'Copiado' : 'Copiar PIN'}</span>
           </button>
         )}
       </div>

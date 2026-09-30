@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ArrowRight, Gamepad2, Radio, Trophy, Users, Zap } from 'lucide-react';
+import { ArrowRight, Gamepad2, Radio, Trophy, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ButtonLink } from '@/components/ui/ButtonLink';
@@ -71,7 +71,6 @@ export function HomePage() {
               <div className="animate-fade-in flex flex-col gap-6 lg:col-span-2 lg:gap-8">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="primary">
-                    <Zap className="size-3.5" aria-hidden="true" />
                     Quiz multiplayer em tempo real
                   </Badge>
                 </div>
@@ -182,7 +181,7 @@ export function HomePage() {
                 <h2 id="criar-quiz-title" className="type-h2">
                   Quer criar seu próprio quiz?
                 </h2>
-                <p className="type-body-lg max-w-lg text-neutral-300">
+                <p className="type-body-lg max-w-lg text-neutral-600">
                   Monte as perguntas, compartilhe o PIN e conduza a partida em tempo real.
                 </p>
               </div>
