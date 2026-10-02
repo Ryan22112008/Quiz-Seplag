@@ -1,6 +1,6 @@
 # Quiz SEPLAG backend
 
-API em Node.js, TypeScript e Express 5. O PostgreSQL é a fonte persistente para quizzes, perguntas, alternativas, salas e jogadores. O frontend continua sem integração com esta API nesta etapa.
+API em Node.js, TypeScript e Express 5. O PostgreSQL é a fonte persistente para quizzes, perguntas, alternativas, salas e jogadores. Partidas usam um repository em memória até uma etapa posterior adicionar a persistência delas. O frontend continua sem integração com esta API nesta etapa.
 
 ## Requisitos
 
@@ -93,10 +93,32 @@ POST   /rooms
 GET    /rooms/:pin
 POST   /rooms/:pin/players
 DELETE /rooms/:pin/players/:playerId
+POST   /rooms/:pin/start
+GET    /rooms/:pin/game
+POST   /rooms/:pin/game/finish
+POST   /rooms/:pin/game/question/start
+GET    /rooms/:pin/game/question
+POST   /rooms/:pin/game/question/next
+POST   /rooms/:pin/game/question/answer
+GET    /rooms/:pin/game/ranking
 ```
 
 Os contratos e erros HTTP da etapa anterior foram mantidos. `POST /rooms` consulta o quiz persistido e responde `404 QUIZ_NOT_FOUND` quando não existe. Nomes de jogador são validados no service e também protegidos por índice único no PostgreSQL; colisões concorrentes viram `409 PLAYER_ALREADY_EXISTS`. Erros de acesso ao banco são retornados como indisponibilidade de armazenamento.
 
+## Domínio da partida
+
+Uma partida começa com status `IN_PROGRESS` (a sala percorre `WAITING → STARTING → IN_PROGRESS`) e pode terminar em `FINISHED`. O estado inicial registra `roomId`, `roomPin`, `quizId`, `currentQuestionIndex` igual a zero, total de perguntas e timestamps do servidor. A primeira pergunta só é ativada por `POST /rooms/:pin/game/question/start`. O service registra `questionStartedAt` e `questionEndsAt` como timestamps absolutos UTC, calculados uma vez com o `timeLimit` da própria pergunta. `GET /rooms/:pin/game/question` devolve a pergunta pública atual e suas opções sem a resposta correta. `POST /rooms/:pin/game/question/next` só avança quando o relógio do servidor alcança `questionEndsAt`; o índice e a transição são protegidos por compare-and-set no repository em memória. Ao expirar a última pergunta, a partida e a sala passam para `FINISHED` e `finishedAt` é preenchido. É necessário que a sala esteja aguardando ou em preparação e que o quiz tenha ao menos uma pergunta. O projeto ainda não define mínimo de jogadores, então esta regra não foi inventada.
+
+O estado público contém referências, timestamps oficiais e somente a pergunta atual (texto e opções com ID/texto); não inclui `correctOptionId` nem dados internos como pontos. O repositório da partida fica em memória e se perde quando o backend reinicia; salas persistidas com estado `IN_PROGRESS` não serão recuperadas como partida até existir persistência de Game. O service não depende de timer agendado: expiração é determinada comparando o relógio atual com `questionEndsAt` absoluto.
+
+## Respostas, pontuação e ranking
+
+`POST /rooms/:pin/game/question/answer` exige exatamente `playerId`, `questionId` e `optionId`. IDs e associação à sala/pergunta/opção são validados pelo backend; tempo, correção e pontos nunca são aceitos do cliente. A resposta recebe `answeredAt` do relógio do servidor e é recusada quando `answeredAt >= questionEndsAt`. Um jogador só pode responder uma vez por pergunta. A gravação da resposta e a atualização do score são atômicas no repository em memória.
+
+A fórmula desta etapa usa `points` da questão como máximo: resposta errada vale zero; resposta correta recebe `floor(points × tempo restante / duração total)`. Assim, responder no início pode valer o máximo e responder perto do limite vale menos, sem ultrapassar o máximo. O ranking inclui todos os participantes ainda vinculados à sala, inclusive quem não respondeu (score zero), ordenados por score decrescente, quantidade de acertos decrescente e, persistindo empate, nome em ordem alfabética pt-BR sem diferenciar caixa, seguido pelo ID. Essa ordenação produz posições distintas determinísticas. `GET /rooms/:pin/game/ranking` retorna somente posição, identidade pública/nome, score e acertos. Respostas e scores são voláteis e desaparecem quando o processo reinicia; sua persistência ficará para etapa posterior.
+
+O `playerId` recebido é validado contra os participantes da sala, mas esta etapa não implementa autenticação; portanto, ainda não prova que a requisição pertence àquele jogador. Também não disponibilize as rotas de gestão de quiz (`GET /quizzes` e `GET /quizzes/:id`, que incluem a resposta correta) a participantes antes de existir autorização de anfitrião. A pergunta do jogo, o envio de resposta e o ranking não incluem `correctOptionId`.
+
 ## Limites desta etapa
 
-Não há autenticação, gestão de partidas, pontuação, ranking, WebSocket nem integração do frontend. A capacidade depende da infraestrutura, configuração e testes de carga; não há alegação de participantes ilimitados.
+Não há autenticação, respostas, pontuação, ranking, WebSocket nem integração do frontend. A capacidade depende da infraestrutura, configuração e testes de carga; não há alegação de participantes ilimitados. A validação real da persistência PostgreSQL da Etapa 13 segue pendente.

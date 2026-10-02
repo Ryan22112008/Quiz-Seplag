@@ -9,6 +9,10 @@ import { PrismaRoomRepository } from '../repositories/roomRepository.js';
 import { QuizService } from '../services/quizService.js';
 import { RoomService } from '../services/roomService.js';
 import { prisma } from '../lib/prisma.js';
+import { InMemoryGameRepository } from '../repositories/gameRepository.js';
+import { GameService } from '../services/gameService.js';
+import { GameController } from '../controllers/gameController.js';
+import { createGameRoutes } from './gameRoutes.js';
 
 export const routes = Router();
 
@@ -17,5 +21,7 @@ const quizRepository = new PrismaQuizRepository(prisma);
 const roomRepository = new PrismaRoomRepository(prisma);
 const quizService = new QuizService(quizRepository);
 const roomService = new RoomService(roomRepository, quizService);
+const gameService = new GameService(new InMemoryGameRepository(), roomService, quizService);
 routes.use(createQuizRoutes(new QuizController(quizService)));
 routes.use(createRoomRoutes(new RoomController(roomService)));
+routes.use(createGameRoutes(new GameController(gameService)));
