@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, CircleHelp, DoorOpen, Home, Play, Users } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
@@ -16,6 +16,9 @@ import { useQuizStore } from '@/stores/quizStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useGameStore } from '@/stores/gameStore';
 import { QUIZ_CATEGORIES } from '@/types/quiz';
+import { api, toFrontendRoom } from '@/services/api/client';
+import { subscribeRoom, sendCommand } from '@/services/realtime/session';
+import { useToastStore } from '@/components/ui/useToastStore';
 
 export function HostLobbyPage() {
   const { quizId } = useParams<{ quizId: string }>();
@@ -23,11 +26,23 @@ export function HostLobbyPage() {
   const [confirmClose, setConfirmClose] = useState(false);
   const quiz = useQuizStore((state) => quizId ? state.getQuizById(quizId) : undefined);
   const room = useRoomStore((state) => state.rooms.find((item) => item.quizId === quizId && item.status !== 'finished'));
-  const setRoomStatus = useRoomStore((state) => state.setRoomStatus);
-  const closeRoom = useRoomStore((state) => state.closeRoom);
   const clearRoom = useRoomStore((state) => state.clearRoom);
-  const startGameState = useGameStore((state) => state.startGame);
-  const startQuestionState = useGameStore((state) => state.startQuestion);
+  const upsertRoom = useRoomStore((state) => state.upsertRoom);
+  const game = useGameStore((state) => state.games[room?.pin ?? '']);
+  const gameStatus = game?.status;
+  const activeRoomPin = room?.pin;
+
+  useEffect(() => {
+    if (!activeRoomPin) return;
+    let active = true;
+    void Promise.all([api.getRoom(activeRoomPin).then((serverRoom) => { if (active) upsertRoom(toFrontendRoom(serverRoom)); }), subscribeRoom(activeRoomPin)])
+      .catch((error: unknown) => useToastStore.getState().push({ variant: 'danger', title: 'Conexão com a sala indisponível', description: error instanceof Error ? error.message : 'Tente novamente.' }));
+    return () => { active = false; };
+  }, [activeRoomPin, upsertRoom]);
+
+  useEffect(() => {
+    if (gameStatus && quizId) navigate(`/criar/${quizId}/partida`);
+  }, [gameStatus, navigate, quizId]);
 
   if (!quizId || !quiz) {
     return (
@@ -63,13 +78,11 @@ export function HostLobbyPage() {
   const countLabel = `${room.players.length} ${room.players.length === 1 ? 'jogador' : 'jogadores'}`;
   const startGame = () => {
     if (room.status !== 'waiting') return;
-    startGameState(quizId, room.pin, quiz.questions.length);
-    startQuestionState(room.pin, quiz.questions[0]?.timeLimit ?? 0);
-    setRoomStatus(room.pin, 'in-progress');
-    navigate(`/criar/${quizId}/partida`);
+    try { sendCommand({ type: 'START_GAME', payload: { roomPin: room.pin } }); }
+    catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível iniciar', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); }
   };
   const endRoom = () => {
-    closeRoom(room.pin);
+    try { sendCommand({ type: 'CLOSE_ROOM', payload: { roomPin: room.pin } }); } catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível encerrar a sala', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); return; }
     clearRoom(room.pin);
     navigate(`/criar/${quizId}/revisar`);
   };
@@ -86,9 +99,9 @@ export function HostLobbyPage() {
       <main>
         <Container size="xl" className="py-8 sm:py-12">
           <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary-800 via-primary-700 to-accent-700 px-5 py-10 text-center text-white shadow-lg sm:px-10 sm:py-14">
-            <Badge variant="success" className="mb-4">Sala local pronta</Badge>
+            <Badge variant="success" className="mb-4">Sala pronta</Badge>
             <h1 className="type-h1 text-white">Sua sala está pronta</h1>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">Compartilhe o PIN com os jogadores. A sala está neste dispositivo e ainda não recebe conexões de outros participantes.</p>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">Compartilhe o PIN com os jogadores para que entrem na sala.</p>
             <div className="mx-auto mt-8 w-fit rounded-2xl border border-border-strong bg-neutral-100 px-3 py-3 text-neutral-900 shadow-xl sm:px-8 sm:py-5">
               <GamePin pin={room.pin} size="lg" />
             </div>
@@ -103,7 +116,7 @@ export function HostLobbyPage() {
               </CardHeader>
               <CardContent>
                 {room.players.length === 0 ? (
-                  <EmptyState icon={<Users className="size-6" />} title="Nenhum jogador entrou ainda" description="Compartilhe o PIN da sala para começar. Os participantes aparecerão aqui quando a conexão multiplayer estiver disponível." className="py-10" />
+                  <EmptyState icon={<Users className="size-6" />} title="Nenhum jogador entrou ainda" description="Compartilhe o PIN da sala para que os participantes entrem." className="py-10" />
                 ) : (
                   <ul aria-label="Lista de jogadores" className="flex flex-col gap-2">
                     {room.players.map((player) => <li key={player.id} className="rounded-lg border border-border p-3">{player.name}</li>)}

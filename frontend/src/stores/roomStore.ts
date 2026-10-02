@@ -13,21 +13,11 @@ interface RoomStore {
   removePlayer: (pin: string, playerId: string) => void;
 }
 
-function generatePin(existingPins: string[]): string {
-  const random = new Uint32Array(1);
-  let pin: string;
-  do {
-    crypto.getRandomValues(random);
-    pin = String(100000 + (random[0] % 900000));
-  } while (existingPins.includes(pin));
-  return pin;
-}
-
-/** In-memory only; this store does not represent a server-backed room. */
+/** Room projection cache. Persistent identities and PINs come from the API. */
 export const useRoomStore = create<RoomStore>((set, get) => ({
   rooms: [],
   createRoom: (quizId) => {
-    const room: Room = { pin: generatePin(get().rooms.map(({ pin }) => pin)), quizId, status: 'waiting', players: [] };
+    const room: Room = { pin: '', quizId, status: 'waiting', players: [] };
     set((state) => ({ rooms: [...state.rooms.filter((existing) => existing.quizId !== quizId), room] }));
     return room;
   },
@@ -36,10 +26,10 @@ export const useRoomStore = create<RoomStore>((set, get) => ({
     rooms: state.rooms.map((room) => room.pin === pin ? { ...room, status } : room),
   })),
   closeRoom: (pin) => set((state) => ({
-    rooms: state.rooms.map((room) => room.pin === pin ? { ...room, status: 'finished', players: [] } : room),
+    rooms: state.rooms.map((room) => room.pin === pin ? { ...room, status: 'finished' } : room),
   })),
   clearRoom: (pin) => set((state) => ({ rooms: state.rooms.filter((room) => room.pin !== pin) })),
-  upsertRoom: (room) => set((state) => ({ rooms: [...state.rooms.filter((item) => item.pin !== room.pin), room] })),
+  upsertRoom: (room) => set((state) => ({ rooms: [...state.rooms.filter((item) => item.pin !== room.pin && item.quizId !== room.quizId), room] })),
   addPlayer: (pin, player) => set((state) => ({
     rooms: state.rooms.map((room) => room.pin === pin && !room.players.some((item) => item.id === player.id)
       ? { ...room, players: [...room.players, player] } : room),

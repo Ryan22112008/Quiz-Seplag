@@ -7,6 +7,7 @@ export type RoomStatus = 'waiting' | 'starting' | 'in-progress' | 'finished';
 
 /** Local-only room state. A future backend will own room identity and membership. */
 export interface Room {
+  id?: string;
   pin: string;
   quizId: string;
   status: RoomStatus;

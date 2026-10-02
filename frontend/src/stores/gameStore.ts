@@ -13,6 +13,8 @@ interface GameStore {
   getGame: (roomPin: string) => GameState | undefined;
   startGame: (quizId: string, roomPin: string, totalQuestions: number) => void;
   startQuestion: (roomPin: string, durationSeconds: number, questionIndex?: number) => void;
+  applyQuestion: (roomPin: string, gameId: string, quizId: string, totalQuestions: number, question: NonNullable<GameState['currentQuestion']>) => void;
+  applyAnswerFeedback: (roomPin: string, result: NonNullable<GameState['answerFeedback']>) => void;
   selectOption: (roomPin: string, optionId: string) => void;
   submitAnswer: (roomPin: string) => void;
   lockQuestion: (roomPin: string, timedOut?: boolean) => void;
@@ -54,10 +56,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
           finalResult: null,
           questionStatistics: null,
           finalStatistics: null,
+          currentQuestionId: null,
+          questionEndsAt: null,
+          currentQuestion: null,
+          answerFeedback: null,
         },
       },
     }));
   },
+  applyQuestion: (roomPin, gameId, quizId, totalQuestions, question) => set((state) => {
+    const previous = state.games[roomPin];
+    const endsAt = Date.parse(question.questionEndsAt);
+    return { games: { ...state.games, [roomPin]: {
+      ...(previous ?? { answerStatus: 'idle' as const, selectedOptionId: null, answerTimedOut: false, questionResult: null, ranking: [], finalResult: null, questionStatistics: null, finalStatistics: null }),
+      quizId, roomPin, gameId, totalQuestions, currentQuestionIndex: question.questionIndex,
+      currentQuestionId: question.questionId, questionEndsAt: question.questionEndsAt, currentQuestion: question,
+      status: Date.now() >= endsAt ? 'locked' : 'question', endsAt,
+      answerStatus: 'idle', selectedOptionId: null, answerTimedOut: false, questionResult: null,
+      questionStatistics: null, answerFeedback: null,
+    } } };
+  }),
+  applyAnswerFeedback: (roomPin, answerFeedback) => set((state) => {
+    const game = state.games[roomPin];
+    return game ? { games: { ...state.games, [roomPin]: { ...game, answerStatus: 'submitted', answerFeedback } } } : state;
+  }),
   startQuestion: (roomPin, durationSeconds, questionIndex) => set((state) => {
     const game = state.games[roomPin];
     if (!game || (game.status !== 'waiting' && game.status !== 'results')) return state;

@@ -7,7 +7,9 @@ export type ServerEvent =
   | { type: 'PLAYER_JOINED'; payload: { roomPin: string; player: RoomPlayer } }
   | { type: 'PLAYER_LEFT'; payload: { roomPin: string; playerId: string } }
   | { type: 'GAME_STARTED'; payload: { quizId: string; roomPin: string; totalQuestions: number } }
-  | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number } }
+  | { type: 'ROOM_SUBSCRIBED'; payload: { roomPin: string; role: 'host' | 'player' } }
+  | { type: 'REALTIME_ERROR'; payload: { code: string; message: string } }
+  | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number; gameId?: string; question?: { questionId: string; questionIndex: number; text: string; options: Array<{ id: string; text: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string }; questionStartedAt?: string; questionEndsAt?: string } }
   | { type: 'ANSWER_SUBMITTED'; payload: { roomPin: string; playerId: string; statistics?: QuestionStatistics } }
   | { type: 'QUESTION_ENDED'; payload: { roomPin: string; timedOut?: boolean } }
   | { type: 'QUESTION_RESULT'; payload: { roomPin: string; result: QuestionResult; statistics?: QuestionStatistics } }
@@ -17,13 +19,17 @@ export type ServerEvent =
 
 /** Commands are outbound requests. The backend remains authoritative for timing, answers and scores. */
 export type ClientCommand =
+  | { type: 'CREATE_ROOM'; payload: { quizId: string } }
   | { type: 'JOIN_ROOM'; payload: { roomPin: string; playerName: string } }
-  | { type: 'LEAVE_ROOM'; payload: { roomPin: string; playerId: string } }
+  | { type: 'SUBSCRIBE_GAME'; payload: { roomPin: string; playerId?: string } }
+  | { type: 'LEAVE_ROOM'; payload: { roomPin: string; playerId?: string } }
   | { type: 'START_GAME'; payload: { roomPin: string } }
+  | { type: 'START_QUESTION'; payload: { roomPin: string } }
   | { type: 'SUBMIT_ANSWER'; payload: { roomPin: string; questionId: string; optionId: string } }
   | { type: 'END_QUESTION'; payload: { roomPin: string; questionId: string } }
   | { type: 'NEXT_QUESTION'; payload: { roomPin: string } }
-  | { type: 'FINISH_GAME'; payload: { roomPin: string } };
+  | { type: 'FINISH_GAME'; payload: { roomPin: string } }
+  | { type: 'CLOSE_ROOM'; payload: { roomPin: string } };
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 

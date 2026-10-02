@@ -1,4 +1,5 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { ArrowLeft, Home, Edit2, Users, Clock, Trophy } from 'lucide-react';
 import { ButtonLink } from '@/components/ui/ButtonLink';
 import { Button } from '@/components/ui/Button';
@@ -8,7 +9,8 @@ import { Container } from '@/components/layout/Container';
 import { useQuizStore } from '@/stores/quizStore';
 import { QUIZ_CATEGORIES } from '@/types/quiz';
 import { useRoomStore } from '@/stores/roomStore';
-import { useNavigate } from 'react-router-dom';
+import { api, toFrontendRoom } from '@/services/api/client';
+import { useToastStore } from '@/components/ui/useToastStore';
 
 /**
  * Quiz review page before publishing.
@@ -18,7 +20,9 @@ export function ReviewQuizPage() {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const { getQuizById } = useQuizStore();
-  const createRoom = useRoomStore((state) => state.createRoom);
+  const upsertRoom = useRoomStore((state) => state.upsertRoom);
+  const updateQuiz = useQuizStore((state) => state.updateQuiz);
+  const [creating, setCreating] = useState(false);
 
   const quiz = quizId ? getQuizById(quizId) : undefined;
 
@@ -50,10 +54,18 @@ export function ReviewQuizPage() {
   const totalTime = quiz.questions.reduce((sum, q) => sum + q.timeLimit, 0);
   const totalPoints = quiz.questions.reduce((sum, q) => sum + q.points, 0);
 
-  const handleCreateRoom = () => {
-    if (!quizId || !getQuizById(quizId)) return;
-    createRoom(quizId);
-    navigate(`/criar/${quizId}/sala`);
+  const handleCreateRoom = async () => {
+    if (!quizId || !getQuizById(quizId) || creating) return;
+    setCreating(true);
+    try {
+      const savedQuiz = await api.createQuiz({ title: quiz.title, description: quiz.description, category: quiz.category, questions: quiz.questions });
+      updateQuiz(quiz.id, savedQuiz);
+      const serverRoom = await api.createRoom(savedQuiz.id);
+      upsertRoom(toFrontendRoom(serverRoom));
+      navigate(`/criar/${savedQuiz.id}/sala`);
+    } catch (error) {
+      useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível criar a sala', description: error instanceof Error ? error.message : 'Tente novamente.' });
+    } finally { setCreating(false); }
   };
 
   return (
@@ -142,8 +154,8 @@ export function ReviewQuizPage() {
                 Editar perguntas
               </ButtonLink>
             </div>
-            <Button onClick={handleCreateRoom} size="lg" className="w-full sm:w-auto">
-              Criar sala
+            <Button onClick={handleCreateRoom} size="lg" className="w-full sm:w-auto" disabled={creating}>
+              {creating ? 'Criando sala…' : 'Criar sala'}
             </Button>
           </div>
         </div>

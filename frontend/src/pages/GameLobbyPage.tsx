@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Home, LogOut, Play } from 'lucide-react';
+import { Home, LogOut, Play, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ButtonLink } from '@/components/ui/ButtonLink';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Container } from '@/components/layout/Container';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useGameStore } from '@/stores/gameStore';
+import { useRoomStore } from '@/stores/roomStore';
+import { api, toFrontendRoom } from '@/services/api/client';
+import { subscribeRoom } from '@/services/realtime/session';
+import { useToastStore } from '@/components/ui/useToastStore';
 
 /**
  * Lobby/waiting room page.
@@ -16,14 +20,33 @@ export function GameLobbyPage() {
   const { pin } = useParams<{ pin: string }>();
   const navigate = useNavigate();
   const { playerName, roomPin, clearPlayer } = usePlayerStore();
+  const playerId = usePlayerStore((state) => state.playerId);
   const game = useGameStore((state) => pin ? state.games[pin] : undefined);
+  const gameStatus = game?.status;
+  const room = useRoomStore((state) => state.getRoom(pin ?? ''));
+  const upsertRoom = useRoomStore((state) => state.upsertRoom);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleLeaveRoom = () => {
+  useEffect(() => {
+    if (!pin || !playerId || roomPin !== pin) return;
+    void Promise.all([api.getRoom(pin).then((value) => upsertRoom(toFrontendRoom(value))), subscribeRoom(pin, playerId)])
+      .catch((error: unknown) => useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível atualizar a sala', description: error instanceof Error ? error.message : 'Verifique a conexão.' }));
+  }, [pin, playerId, roomPin, upsertRoom]);
+
+  useEffect(() => {
+    if (gameStatus && gameStatus !== 'waiting') navigate(`/jogar/${pin}/partida`);
+    else if (room?.status === 'finished') navigate('/');
+  }, [gameStatus, navigate, pin, room?.status]);
+
+  const handleLeaveRoom = async () => {
+    if (pin && playerId) {
+      try { await api.leaveRoom(pin, playerId); }
+      catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível sair da sala', description: error instanceof Error ? error.message : 'Tente novamente.' }); return; }
+    }
     clearPlayer();
     navigate('/');
   };
@@ -82,10 +105,15 @@ export function GameLobbyPage() {
           <div className="flex flex-col gap-1">
             <p className="type-body text-neutral-600">Olá, {playerName}!</p>
             <p className="type-body-sm text-neutral-500">Aguardando o anfitrião iniciar a partida...</p>
-            <p className="type-caption max-w-xs text-neutral-400">Este lobby mantém apenas dados locais e não recebe atualizações de outros dispositivos.</p>
+            <p className="type-caption max-w-xs text-neutral-400">Você está conectado à sala e aguardando o início da partida.</p>
           </div>
 
           <p className="type-body-sm text-neutral-400">Você está pronto!</p>
+
+          <div className="w-full rounded-xl border border-border bg-surface p-4 text-left">
+            <p className="type-label mb-3 flex items-center gap-2 text-neutral-700"><Users className="size-4" aria-hidden="true" />Jogadores na sala ({room?.players.length ?? 0})</p>
+            {room?.players.length ? <ul className="flex flex-col gap-2">{room.players.map((player) => <li key={player.id} className="rounded-lg bg-neutral-50 px-3 py-2 type-body-sm">{player.name}</li>)}</ul> : <p className="type-caption text-neutral-500">Aguardando participantes…</p>}
+          </div>
 
           {game && game.status !== 'waiting' && game.status !== 'finished' && pin && (
             <ButtonLink to={`/jogar/${pin}/partida`} size="lg" className="w-full">

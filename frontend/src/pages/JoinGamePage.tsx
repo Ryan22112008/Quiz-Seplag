@@ -10,6 +10,11 @@ import { Container } from '@/components/layout/Container';
 import { Input } from '@/components/ui/Input';
 import { usePlayerStore } from '@/stores/playerStore';
 import { baseTextSchema } from '@/lib/validators';
+import { api, toFrontendRoom } from '@/services/api/client';
+import { subscribeRoom } from '@/services/realtime/session';
+import { useRoomStore } from '@/stores/roomStore';
+import { useToastStore } from '@/components/ui/useToastStore';
+import { useState } from 'react';
 
 const playerNameSchema = baseTextSchema
   .min(2, 'O nome deve ter pelo menos 2 caracteres')
@@ -29,7 +34,9 @@ type JoinRoomValues = z.infer<typeof joinRoomSchema>;
 export function JoinGamePage() {
   const { pin } = useParams<{ pin: string }>();
   const navigate = useNavigate();
-  const { setPlayerName, setRoomPin } = usePlayerStore();
+  const setIdentity = usePlayerStore((state) => state.setIdentity);
+  const upsertRoom = useRoomStore((state) => state.upsertRoom);
+  const [joining, setJoining] = useState(false);
 
   const {
     register,
@@ -41,13 +48,18 @@ export function JoinGamePage() {
     defaultValues: { playerName: '' },
   });
 
-  const onValidSubmit = (values: JoinRoomValues) => {
-    if (!pin) return;
-
-    const trimmedName = values.playerName.trim();
-    setPlayerName(trimmedName);
-    setRoomPin(pin);
-    navigate(`/jogar/${pin}/aguardando`);
+  const onValidSubmit = async (values: JoinRoomValues) => {
+    if (!pin || joining) return;
+    setJoining(true);
+    try {
+      const joined = await api.joinRoom(pin, values.playerName.trim());
+      upsertRoom(toFrontendRoom(joined.room));
+      setIdentity({ playerId: joined.player.id, roomId: joined.room.id, roomPin: pin, playerName: joined.player.name });
+      await subscribeRoom(pin, joined.player.id);
+      navigate(`/jogar/${pin}/aguardando`);
+    } catch (error) {
+      useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível entrar na sala', description: error instanceof Error ? error.message : 'Confira o PIN e tente novamente.' });
+    } finally { setJoining(false); }
   };
 
   if (!pin) {
@@ -102,8 +114,8 @@ export function JoinGamePage() {
               error={errors.playerName?.message}
               inputClassName="text-center"
             />
-            <Button type="submit" size="lg" className="w-full">
-              Entrar na sala
+            <Button type="submit" size="lg" className="w-full" disabled={joining}>
+              {joining ? 'Entrando…' : 'Entrar na sala'}
               <ArrowRight className="size-4" aria-hidden="true" />
             </Button>
           </form>

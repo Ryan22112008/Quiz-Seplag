@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from '@/App.tsx';
 import '@/index.css';
+import { realtimeTransport } from '@/services/realtime/transport';
+import { handleServerEvent } from '@/services/realtime/eventHandler';
+
+realtimeTransport.subscribe(handleServerEvent);
 
 const rootElement = document.getElementById('root');
 

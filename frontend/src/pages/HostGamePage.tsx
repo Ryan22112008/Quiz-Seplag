@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, DoorOpen, Flag, Home, Play, Users } from 'lucide-react';
+import { CheckCircle2, DoorOpen, Flag, Home, Users } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { Logo } from '@/components/layout/Logo';
 import { GameProgress } from '@/components/game/GameProgress';
@@ -18,49 +18,47 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useQuizStore } from '@/stores/quizStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useGameStore } from '@/stores/gameStore';
+import { sendCommand } from '@/services/realtime/session';
+import { useToastStore } from '@/components/ui/useToastStore';
 
 export function HostGamePage() {
   const { quizId = '' } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [timerExpired, setTimerExpired] = useState(false);
   const quiz = useQuizStore((state) => state.getQuizById(quizId));
   const room = useRoomStore((state) => state.rooms.find((item) => item.quizId === quizId));
   const game = useGameStore((state) => room ? state.games[room.pin] : undefined);
-  const startGame = useGameStore((state) => state.startGame);
-  const lockQuestion = useGameStore((state) => state.lockQuestion);
-  const revealResults = useGameStore((state) => state.revealResults);
-  const startQuestion = useGameStore((state) => state.startQuestion);
-  const finishGame = useGameStore((state) => state.finishGame);
   const resetGame = useGameStore((state) => state.resetGame);
   const closeRoom = useRoomStore((state) => state.closeRoom);
   const clearRoom = useRoomStore((state) => state.clearRoom);
-  const setRoomStatus = useRoomStore((state) => state.setRoomStatus);
   const phaseRef = useRef<HTMLDivElement>(null);
-  const handleExpire = useCallback(() => {
-    if (room) lockQuestion(room.pin, true);
-  }, [lockQuestion, room]);
+  const questionStartRequested = useRef<string | null>(null);
+  const handleExpire = useCallback(() => setTimerExpired(true), []);
   const gameStatus = game?.status;
+  const activeRoomPin = room?.pin;
 
   useEffect(() => {
-    if (quiz && room && !game) {
-      startGame(quiz.id, room.pin, quiz.questions.length);
-      startQuestion(room.pin, quiz.questions[0]?.timeLimit ?? 0);
-      setRoomStatus(room.pin, 'in-progress');
+    if (gameStatus === 'waiting' && activeRoomPin && questionStartRequested.current !== activeRoomPin) {
+      questionStartRequested.current = activeRoomPin;
+      try { sendCommand({ type: 'START_QUESTION', payload: { roomPin: activeRoomPin } }); }
+      catch (error) { questionStartRequested.current = null; useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível iniciar a pergunta', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); }
     }
-  }, [game, quiz, room, startGame, startQuestion, setRoomStatus]);
+  }, [gameStatus, activeRoomPin]);
 
   useEffect(() => {
     if (gameStatus === 'locked' || gameStatus === 'results' || gameStatus === 'finished') phaseRef.current?.focus();
   }, [gameStatus, game?.currentQuestionIndex]);
+  useEffect(() => { setTimerExpired(false); }, [game?.currentQuestionId]);
 
   if (!quiz || !room) {
     return <HostState title="Partida não encontrada" description="O quiz, a sala ou o estado da partida não está disponível neste dispositivo." action={<ButtonLink to="/" size="lg"><Home className="size-4" aria-hidden="true" />Voltar ao início</ButtonLink>} />;
   }
   if (!game) return <Container size="md" className="flex min-h-screen items-center justify-center"><div className="flex flex-col items-center gap-3"><Spinner label="Carregando resultado" /><p className="type-body text-neutral-600">Carregando resultado...</p></div></Container>;
 
-  const question = quiz.questions[game.currentQuestionIndex];
+  const sourceQuestion = quiz.questions[game.currentQuestionIndex];
+  const question = game.currentQuestion && sourceQuestion ? { ...sourceQuestion, id: game.currentQuestion.questionId, question: game.currentQuestion.text, options: game.currentQuestion.options } : undefined;
   const lastQuestion = game.currentQuestionIndex === game.totalQuestions - 1;
-  const nextDuration = quiz.questions[game.currentQuestionIndex + 1]?.timeLimit ?? 0;
   const phase = game.status;
   const leaveToReview = () => {
     navigate(`/criar/${quizId}/revisar`);
@@ -75,18 +73,13 @@ export function HostGamePage() {
     clearRoom(room.pin);
   };
   const endGame = () => {
-    finishGame(room.pin);
-    setRoomStatus(room.pin, 'finished');
+    try { sendCommand({ type: 'FINISH_GAME', payload: { roomPin: room.pin } }); }
+    catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível encerrar a partida', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); }
     setConfirmEnd(false);
   };
   const next = () => {
-    if (phase !== 'results') return;
-    if (lastQuestion) {
-      finishGame(room.pin);
-      setRoomStatus(room.pin, 'finished');
-    } else {
-      startQuestion(room.pin, nextDuration, game.currentQuestionIndex + 1);
-    }
+    try { sendCommand({ type: 'NEXT_QUESTION', payload: { roomPin: room.pin } }); }
+    catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível avançar', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); }
   };
 
   if (game.status === 'finished') {
@@ -115,24 +108,21 @@ export function HostGamePage() {
     );
   }
 
-  if (!question) {
+  if (!question && game.status !== 'waiting') {
     return <HostState title="Quiz sem perguntas" description="Adicione perguntas ao quiz antes de iniciar uma partida." action={<ButtonLink to={`/criar/${quizId}/perguntas`} size="lg">Editar perguntas</ButtonLink>} />;
   }
 
+  if (!question) return <Container size="md" className="flex min-h-screen items-center justify-center"><Spinner label="Aguardando pergunta" /></Container>;
   const questionResultVisible = game.status === 'results';
   const correctOptionId = questionResultVisible ? game.questionResult?.correctOptionId ?? question.correctOptionId : undefined;
   const optionLabels = ['A', 'B', 'C', 'D'];
-  const disabledReason = game.status === 'question'
-    ? 'Encerre a pergunta para liberar o resultado e avançar.'
-    : game.status === 'locked'
-      ? 'Abra a tela de resultados antes de avançar.'
-      : 'Aguarde a fase de resultados para avançar.';
+  const disabledReason = game.status === 'question' ? 'O servidor só avança quando o tempo da pergunta termina.' : 'Aguarde a próxima pergunta.';
 
   return (
     <div className="min-h-screen bg-neutral-50">
       <header className="border-b border-border bg-surface">
         <Container size="xl" className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center justify-between gap-3"><Logo /><Badge variant="primary">Anfitrião · sala local</Badge></div>
+          <div className="flex items-center justify-between gap-3"><Logo /><Badge variant="primary">Anfitrião</Badge></div>
           <div className="flex items-center gap-4 sm:w-1/2"><GameProgress current={game.currentQuestionIndex + 1} total={game.totalQuestions} />{game.status === 'question' && game.endsAt !== null && <Timer key={`${room.pin}-${game.currentQuestionIndex}`} duration={question.timeLimit} endsAt={game.endsAt} size="sm" onExpire={handleExpire} />}</div>
         </Container>
       </header>
@@ -181,16 +171,14 @@ export function HostGamePage() {
             <aside className="flex flex-col gap-4">
               <Card variant="elevated"><CardContent className="flex flex-col gap-4 p-5">
                 <div className="flex items-center justify-between gap-3"><span className="type-body-sm flex items-center gap-2 text-neutral-600"><Users className="size-4" aria-hidden="true" />Jogadores</span><strong className="type-h3 text-neutral-900">{room.players.length}</strong></div>
-                <StatCard label="Respostas registradas" value={game.questionStatistics?.totalResponses ?? '—'} />
+                <StatCard label="Respostas registradas" value={game.questionStatistics?.totalResponses ?? game.ranking.length} />
                 <StatCard label="Respostas corretas" value={game.questionStatistics?.correctResponses ?? '—'} />
-                <p className="type-caption border-t border-border pt-3 text-neutral-500">Dados locais; nenhuma resposta de outros dispositivos foi recebida.</p>
+                <p className="type-caption border-t border-border pt-3 text-neutral-500">Respostas e ranking recebidos do servidor.</p>
               </CardContent></Card>
 
-              {game.status === 'question' && <Button size="lg" className="w-full" onClick={() => lockQuestion(room.pin)}><Flag className="size-4" aria-hidden="true" />Encerrar pergunta</Button>}
-              {game.status === 'locked' && <Button size="lg" className="w-full" onClick={() => revealResults(room.pin)}>Exibir resultados</Button>}
-              {game.status === 'results' && <Button size="lg" className="w-full" onClick={next}><Play className="size-4" aria-hidden="true" />{lastQuestion ? 'Ver resultado final' : 'Próxima pergunta'}</Button>}
-              {game.status !== 'results' && <div><Button size="lg" className="w-full" disabled aria-describedby="advance-disabled-reason">{lastQuestion ? 'Ver resultado final' : 'Próxima pergunta'}</Button><p id="advance-disabled-reason" className="type-caption mt-2 text-center text-neutral-500">{disabledReason}</p></div>}
-              <p className="type-caption text-center text-neutral-500">O avanço só fica disponível após abrir os resultados da pergunta.</p>
+              {game.status === 'question' && <Button size="lg" className="w-full" onClick={next} disabled={!timerExpired}><Flag className="size-4" aria-hidden="true" />{lastQuestion ? 'Finalizar após o tempo' : 'Próxima pergunta'}</Button>}
+              {game.status !== 'question' && <div><Button size="lg" className="w-full" disabled aria-describedby="advance-disabled-reason">{lastQuestion ? 'Ver resultado final' : 'Aguardando pergunta'}</Button><p id="advance-disabled-reason" className="type-caption mt-2 text-center text-neutral-500">{disabledReason}</p></div>}
+              <p className="type-caption text-center text-neutral-500">O servidor valida o tempo e controla o avanço da partida.</p>
             </aside>
           </section>
         </Container>
