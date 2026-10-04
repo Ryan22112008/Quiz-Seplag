@@ -53,5 +53,4 @@ export interface GameState {
   currentQuestionId?: string | null;
   questionEndsAt?: string | null;
   currentQuestion?: { questionId: string; questionIndex: number; text: string; options: Array<{ id: string; text: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string } | null;
-  answerFeedback?: { isCorrect: boolean; points: number; totalScore: number } | null;
 }

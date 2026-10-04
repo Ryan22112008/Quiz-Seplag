@@ -12,9 +12,8 @@ interface GameStore {
   games: Record<string, GameState>;
   getGame: (roomPin: string) => GameState | undefined;
   startGame: (quizId: string, roomPin: string, totalQuestions: number) => void;
-  startQuestion: (roomPin: string, durationSeconds: number, questionIndex?: number) => void;
   applyQuestion: (roomPin: string, gameId: string, quizId: string, totalQuestions: number, question: NonNullable<GameState['currentQuestion']>) => void;
-  applyAnswerFeedback: (roomPin: string, result: NonNullable<GameState['answerFeedback']>) => void;
+  syncGame: (input: { roomPin: string; gameId: string; quizId: string; currentQuestionIndex: number; totalQuestions: number; gameStatus: 'IN_PROGRESS' | 'FINISHED'; question: GameState['currentQuestion']; ranking: RankingEntry[]; hasAnswered: boolean; questionEnded: boolean }) => void;
   selectOption: (roomPin: string, optionId: string) => void;
   submitAnswer: (roomPin: string) => void;
   lockQuestion: (roomPin: string, timedOut?: boolean) => void;
@@ -30,7 +29,7 @@ interface GameStore {
 
 /**
  * Local game state only. These actions are future event entry points:
- * startQuestion→QUESTION_STARTED, submitAnswer→ANSWER_SUBMITTED,
+ * applyQuestion→QUESTION_STARTED, submitAnswer→ANSWER_SUBMITTED,
  * lockQuestion→QUESTION_ENDED, setQuestionResult→QUESTION_RESULT,
  * setRanking→RANKING_UPDATED, finishGame→GAME_FINISHED.
  */
@@ -59,7 +58,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
           currentQuestionId: null,
           questionEndsAt: null,
           currentQuestion: null,
-          answerFeedback: null,
         },
       },
     }));
@@ -71,31 +69,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...(previous ?? { answerStatus: 'idle' as const, selectedOptionId: null, answerTimedOut: false, questionResult: null, ranking: [], finalResult: null, questionStatistics: null, finalStatistics: null }),
       quizId, roomPin, gameId, totalQuestions, currentQuestionIndex: question.questionIndex,
       currentQuestionId: question.questionId, questionEndsAt: question.questionEndsAt, currentQuestion: question,
-      status: Date.now() >= endsAt ? 'locked' : 'question', endsAt,
+      status: 'question', endsAt,
       answerStatus: 'idle', selectedOptionId: null, answerTimedOut: false, questionResult: null,
-      questionStatistics: null, answerFeedback: null,
+      questionStatistics: null,
     } } };
   }),
-  applyAnswerFeedback: (roomPin, answerFeedback) => set((state) => {
-    const game = state.games[roomPin];
-    return game ? { games: { ...state.games, [roomPin]: { ...game, answerStatus: 'submitted', answerFeedback } } } : state;
-  }),
-  startQuestion: (roomPin, durationSeconds, questionIndex) => set((state) => {
-    const game = state.games[roomPin];
-    if (!game || (game.status !== 'waiting' && game.status !== 'results')) return state;
-    const nextIndex = questionIndex ?? game.currentQuestionIndex;
-    if (nextIndex < 0 || nextIndex >= game.totalQuestions) return state;
+  syncGame: ({ roomPin, gameId, quizId, currentQuestionIndex, totalQuestions, gameStatus, question, ranking, hasAnswered, questionEnded }) => set((state) => {
+    const endsAt = question?.questionEndsAt ? Date.parse(question.questionEndsAt) : null;
+    const status = gameStatus === 'FINISHED' ? 'finished' : question ? (questionEnded ? 'locked' : 'question') : 'waiting';
+    const previous = state.games[roomPin];
     return { games: { ...state.games, [roomPin]: {
-      ...game,
-      currentQuestionIndex: nextIndex,
-      status: 'question',
-      endsAt: Date.now() + Math.max(0, durationSeconds) * 1000,
-      answerStatus: 'idle',
-      selectedOptionId: null,
-      answerTimedOut: false,
-      questionResult: null,
-      questionStatistics: null,
-      ranking: [],
+      quizId, roomPin, gameId, currentQuestionIndex, totalQuestions, status,
+      endsAt: status === 'question' ? endsAt : null,
+      answerStatus: hasAnswered ? 'submitted' : 'idle', selectedOptionId: null,
+      answerTimedOut: questionEnded && !hasAnswered, questionResult: null, ranking,
+      finalResult: previous?.finalResult ?? null, questionStatistics: null, finalStatistics: previous?.finalStatistics ?? null,
+      currentQuestionId: question?.questionId ?? null, questionEndsAt: question?.questionEndsAt ?? null,
+      currentQuestion: question ?? null,
     } } };
   }),
   selectOption: (roomPin, optionId) => set((state) => {

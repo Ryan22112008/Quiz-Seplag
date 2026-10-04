@@ -40,6 +40,20 @@ describe('RoomService', () => {
     assert.deepEqual(room.players, []);
   });
 
+  it('emite capacidades aleatórias e as vincula exclusivamente à sala e ao jogador', async () => {
+    const { service } = createService();
+    const { room, hostToken } = await service.createRoomWithHostToken('quiz-1');
+    const joined = await service.joinRoom(room.pin, 'Ryan');
+    assert.equal(hostToken.length, 43);
+    assert.equal(service.isValidHostToken(room.id, hostToken), true);
+    assert.equal(service.isValidHostToken(room.id, `${hostToken}x`), false);
+    assert.equal(service.isValidPlayerToken(room.id, joined.player.id, joined.playerToken), true);
+    assert.equal(service.isValidPlayerToken(room.id, 'outro-jogador', joined.playerToken), false);
+    assert.equal(service.isValidPlayerToken('outra-sala', joined.player.id, joined.playerToken), false);
+    await service.leaveRoom(room.pin, joined.player.id);
+    assert.equal(service.isValidPlayerToken(room.id, joined.player.id, joined.playerToken), false);
+  });
+
   it('gera outro PIN quando o PIN já está ocupado', async () => {
     const { service } = createService(['482931', '482931', '654321']);
     const first = await service.createRoom('quiz-1');

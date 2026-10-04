@@ -30,6 +30,10 @@ describe('QuizService', () => {
   it('rejeita dados inválidos, inclusive alternativa correta ausente', async () => {
     const service = setup();
     await assert.rejects(() => service.createQuiz({ ...payload(), title: ' ' }), (e) => e instanceof DomainError && e.code === 'INVALID_QUIZ');
+    await assert.rejects(() => service.createQuiz({ ...payload(), score: 999999 }), (e) => e instanceof DomainError && e.code === 'INVALID_QUIZ');
+    const withInjectedOptionField = payload();
+    (withInjectedOptionField.questions[0]!.options[0] as { id: string; text: string; score?: number }).score = 999999;
+    await assert.rejects(() => service.createQuiz(withInjectedOptionField), (e) => e instanceof DomainError && e.code === 'INVALID_QUIZ');
     const bad = payload(); bad.questions[0]!.correctOptionId = 'unknown';
     await assert.rejects(() => service.createQuiz(bad), (e) => e instanceof DomainError && e.code === 'INVALID_QUIZ');
   });

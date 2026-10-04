@@ -93,6 +93,12 @@ export class GameService {
     return state.currentQuestion;
   }
 
+  async hasAnswered(roomPin: string, questionId: string, playerId: string): Promise<boolean> {
+    const state = await this.getGame(roomPin);
+    if (state.currentQuestion?.questionId !== questionId) return false;
+    return Boolean(await this.repository.findAnswer(state.id, questionId, playerId));
+  }
+
   async isQuestionExpired(gameId: string): Promise<boolean> {
     const game = await this.requireGame(gameId);
     if (game.status !== 'IN_PROGRESS') throw new DomainError('GAME_NOT_IN_PROGRESS', 409, 'A partida não está em andamento.');

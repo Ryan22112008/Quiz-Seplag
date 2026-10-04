@@ -1,9 +1,9 @@
 import type { Quiz } from '@/types/quiz';
 import type { Room, RoomPlayer } from '@/types/room';
-
-const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000').replace(/\/$/u, '');
+import { API_BASE_URL } from '@/config/environment';
 
 export interface ApiRoom { id: string; pin: string; quizId: string; status: 'WAITING' | 'STARTING' | 'IN_PROGRESS' | 'FINISHED'; players: Array<{ id: string; name: string }> }
+export interface CreatedApiRoom extends ApiRoom { hostToken: string }
 export interface PublicQuestion { questionId: string; questionIndex: number; text: string; options: Array<{ id: string; text: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string }
 export interface PublicGame { id: string; roomId: string; roomPin: string; quizId: string; status: 'IN_PROGRESS' | 'FINISHED'; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: string | null; questionEndsAt: string | null; currentQuestion: PublicQuestion | null }
 export interface AnswerResult { accepted: true; isCorrect: boolean; points: number; totalScore: number }
@@ -11,7 +11,7 @@ export interface ApiRankingEntry { position: number; playerId: string; playerNam
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
-  try { response = await fetch(`${API_URL}${path}`, { ...init, headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers } }); }
+  try { response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers } }); }
   catch { throw new Error('Não foi possível conectar ao servidor. Verifique se o backend está em execução.'); }
   if (!response.ok) {
     const data = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
@@ -23,9 +23,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   createQuiz: (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>) => request<Quiz>('/quizzes', { method: 'POST', body: JSON.stringify(quiz) }),
   getQuiz: (id: string) => request<Quiz>(`/quizzes/${encodeURIComponent(id)}`),
-  createRoom: (quizId: string) => request<ApiRoom>('/rooms', { method: 'POST', body: JSON.stringify({ quizId }) }),
+  createRoom: (quizId: string) => request<CreatedApiRoom>('/rooms', { method: 'POST', body: JSON.stringify({ quizId }) }),
   getRoom: (pin: string) => request<ApiRoom>(`/rooms/${encodeURIComponent(pin)}`),
-  joinRoom: (pin: string, name: string) => request<{ room: ApiRoom; player: RoomPlayer }>(`/rooms/${encodeURIComponent(pin)}/players`, { method: 'POST', body: JSON.stringify({ name }) }),
+  getHostQuiz: (pin: string, hostToken: string) => request<Quiz>(`/rooms/${encodeURIComponent(pin)}/quiz`, { headers: { 'X-Host-Token': hostToken } }),
+  joinRoom: (pin: string, name: string) => request<{ room: ApiRoom; player: RoomPlayer; playerToken: string }>(`/rooms/${encodeURIComponent(pin)}/players`, { method: 'POST', body: JSON.stringify({ name }) }),
   leaveRoom: (pin: string, playerId: string) => request<void>(`/rooms/${encodeURIComponent(pin)}/players/${encodeURIComponent(playerId)}`, { method: 'DELETE' }),
   getGame: (pin: string) => request<PublicGame>(`/rooms/${encodeURIComponent(pin)}/game`),
   startGame: (pin: string) => request<PublicGame>(`/rooms/${encodeURIComponent(pin)}/start`, { method: 'POST' }),
@@ -36,6 +37,6 @@ export const api = {
   finishGame: (pin: string) => request<PublicGame>(`/rooms/${encodeURIComponent(pin)}/game/finish`, { method: 'POST' }),
 };
 
-export function toFrontendRoom(room: ApiRoom): Room {
-  return { id: room.id, pin: room.pin, quizId: room.quizId, status: ({ WAITING: 'waiting', STARTING: 'starting', IN_PROGRESS: 'in-progress', FINISHED: 'finished' } as const)[room.status], players: room.players.map(({ id, name }) => ({ id, name })) };
+export function toFrontendRoom(room: ApiRoom | CreatedApiRoom): Room {
+  return { id: room.id, pin: room.pin, quizId: room.quizId, status: ({ WAITING: 'waiting', STARTING: 'starting', IN_PROGRESS: 'in-progress', FINISHED: 'finished' } as const)[room.status], players: room.players.map(({ id, name }) => ({ id, name })), ...('hostToken' in room ? { hostToken: room.hostToken } : {}) };
 }

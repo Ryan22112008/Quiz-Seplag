@@ -8,9 +8,9 @@ import { Container } from '@/components/layout/Container';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
-import { api, toFrontendRoom } from '@/services/api/client';
-import { subscribeRoom } from '@/services/realtime/session';
+import { leaveRoomRealtime, subscribeRoom } from '@/services/realtime/session';
 import { useToastStore } from '@/components/ui/useToastStore';
+import { RealtimeConnectionNotice } from '@/components/game/RealtimeConnectionNotice';
 
 /**
  * Lobby/waiting room page.
@@ -21,10 +21,10 @@ export function GameLobbyPage() {
   const navigate = useNavigate();
   const { playerName, roomPin, clearPlayer } = usePlayerStore();
   const playerId = usePlayerStore((state) => state.playerId);
+  const playerToken = usePlayerStore((state) => state.playerToken);
   const game = useGameStore((state) => pin ? state.games[pin] : undefined);
   const gameStatus = game?.status;
   const room = useRoomStore((state) => state.getRoom(pin ?? ''));
-  const upsertRoom = useRoomStore((state) => state.upsertRoom);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -33,18 +33,18 @@ export function GameLobbyPage() {
 
   useEffect(() => {
     if (!pin || !playerId || roomPin !== pin) return;
-    void Promise.all([api.getRoom(pin).then((value) => upsertRoom(toFrontendRoom(value))), subscribeRoom(pin, playerId)])
+    void subscribeRoom(pin, playerId, undefined, playerToken)
       .catch((error: unknown) => useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível atualizar a sala', description: error instanceof Error ? error.message : 'Verifique a conexão.' }));
-  }, [pin, playerId, roomPin, upsertRoom]);
+  }, [pin, playerId, playerToken, roomPin]);
 
   useEffect(() => {
-    if (gameStatus && gameStatus !== 'waiting') navigate(`/jogar/${pin}/partida`);
+    if (gameStatus && gameStatus !== 'waiting' || room?.status === 'in-progress') navigate(`/jogar/${pin}/partida`);
     else if (room?.status === 'finished') navigate('/');
   }, [gameStatus, navigate, pin, room?.status]);
 
   const handleLeaveRoom = async () => {
     if (pin && playerId) {
-      try { await api.leaveRoom(pin, playerId); }
+      try { await leaveRoomRealtime(pin, playerId); }
       catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível sair da sala', description: error instanceof Error ? error.message : 'Tente novamente.' }); return; }
     }
     clearPlayer();
@@ -90,6 +90,7 @@ export function GameLobbyPage() {
     <Container size="md" className="min-h-screen flex items-center justify-center py-12">
       <Card variant="elevated" className="w-full max-w-md">
         <CardContent className="flex flex-col items-center gap-6 p-8 text-center">
+          <div className="w-full text-left"><RealtimeConnectionNotice /></div>
           <div className="flex flex-col items-center gap-2">
             <div className="flex size-16 items-center justify-center rounded-full bg-success-100 text-success-600">
               <Play className="size-8" aria-hidden="true" />

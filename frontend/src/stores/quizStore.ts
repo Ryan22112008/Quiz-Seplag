@@ -5,6 +5,7 @@ interface QuizStore {
   quizzes: Quiz[];
 
   createQuiz: (quiz: Quiz) => void;
+  upsertQuiz: (quiz: Quiz) => void;
   updateQuiz: (id: string, quiz: Partial<Quiz>) => void;
   deleteQuiz: (id: string) => void;
   getQuizById: (id: string) => Quiz | undefined;
@@ -22,6 +23,8 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       quizzes: [...state.quizzes, quiz],
     }));
   },
+
+  upsertQuiz: (quiz) => set((state) => ({ quizzes: [...state.quizzes.filter((item) => item.id !== quiz.id), quiz] })),
 
   updateQuiz: (id, updatedQuiz) => {
     set((state) => ({

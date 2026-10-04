@@ -14,7 +14,7 @@ import { api, toFrontendRoom } from '@/services/api/client';
 import { subscribeRoom } from '@/services/realtime/session';
 import { useRoomStore } from '@/stores/roomStore';
 import { useToastStore } from '@/components/ui/useToastStore';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const playerNameSchema = baseTextSchema
   .min(2, 'O nome deve ter pelo menos 2 caracteres')
@@ -35,8 +35,21 @@ export function JoinGamePage() {
   const { pin } = useParams<{ pin: string }>();
   const navigate = useNavigate();
   const setIdentity = usePlayerStore((state) => state.setIdentity);
+  const playerId = usePlayerStore((state) => state.playerId);
+  const playerToken = usePlayerStore((state) => state.playerToken);
+  const existingRoomPin = usePlayerStore((state) => state.roomPin);
   const upsertRoom = useRoomStore((state) => state.upsertRoom);
   const [joining, setJoining] = useState(false);
+
+  useEffect(() => {
+    if (!pin || !playerId || existingRoomPin !== pin) return;
+    let current = true;
+    void subscribeRoom(pin, playerId, undefined, playerToken).then(() => { if (current) navigate(`/jogar/${pin}/aguardando`, { replace: true }); }).catch((error: unknown) => {
+      if (hasErrorCode(error, 'PLAYER_NOT_FOUND')) usePlayerStore.getState().clearPlayer();
+      if (current) useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível recuperar sua sessão', description: error instanceof Error ? error.message : 'Entre novamente na sala.' });
+    });
+    return () => { current = false; };
+  }, [existingRoomPin, navigate, pin, playerId, playerToken]);
 
   const {
     register,
@@ -52,10 +65,16 @@ export function JoinGamePage() {
     if (!pin || joining) return;
     setJoining(true);
     try {
+      const existing = usePlayerStore.getState();
+      if (existing.playerId && existing.roomPin === pin) {
+        await subscribeRoom(pin, existing.playerId, undefined, existing.playerToken);
+        navigate(`/jogar/${pin}/aguardando`);
+        return;
+      }
       const joined = await api.joinRoom(pin, values.playerName.trim());
       upsertRoom(toFrontendRoom(joined.room));
-      setIdentity({ playerId: joined.player.id, roomId: joined.room.id, roomPin: pin, playerName: joined.player.name });
-      await subscribeRoom(pin, joined.player.id);
+      setIdentity({ playerId: joined.player.id, roomId: joined.room.id, roomPin: pin, playerName: joined.player.name, playerToken: joined.playerToken });
+      await subscribeRoom(pin, joined.player.id, undefined, joined.playerToken);
       navigate(`/jogar/${pin}/aguardando`);
     } catch (error) {
       useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível entrar na sala', description: error instanceof Error ? error.message : 'Confira o PIN e tente novamente.' });
@@ -129,4 +148,8 @@ export function JoinGamePage() {
       </Card>
     </Container>
   );
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
 }

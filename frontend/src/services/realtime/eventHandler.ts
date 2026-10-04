@@ -3,6 +3,8 @@ import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useToastStore } from '@/components/ui/useToastStore';
+import { useRealtimeStore } from '@/stores/realtimeStore';
+import { endRealtimeSession, sendCommand } from './session';
 
 /** The single inbound boundary from server events to domain store actions. */
 export function handleServerEvent(event: ServerEvent): void {
@@ -10,16 +12,42 @@ export function handleServerEvent(event: ServerEvent): void {
   const rooms = useRoomStore.getState();
 
   switch (event.type) {
-    case 'ROOM_SUBSCRIBED': break;
+    case 'ROOM_SUBSCRIBED': useRealtimeStore.getState().setSession({ roomPin: event.payload.roomPin, ...(event.payload.role === 'player' && usePlayerStore.getState().playerId ? { playerId: usePlayerStore.getState().playerId } : {}), role: event.payload.role }); break;
     case 'REALTIME_ERROR':
       useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível concluir a ação', description: friendlyRealtimeMessage(event.payload.code) });
       break;
     case 'ROOM_CREATED': rooms.upsertRoom(event.payload.room); break;
+    case 'ROOM_SYNCED': {
+      const snapshot = event.payload;
+      rooms.upsertRoom(snapshot.room);
+      if (!snapshot.game) game.resetGame(snapshot.room.pin);
+      else game.syncGame({
+        roomPin: snapshot.room.pin, gameId: snapshot.game.id, quizId: snapshot.game.quizId,
+        currentQuestionIndex: snapshot.game.currentQuestionIndex, totalQuestions: snapshot.game.totalQuestions,
+        gameStatus: snapshot.game.status, question: snapshot.game.currentQuestion,
+        ranking: snapshot.ranking, hasAnswered: snapshot.hasAnsweredCurrentQuestion, questionEnded: snapshot.questionEnded,
+      });
+      if (snapshot.game?.status === 'FINISHED') {
+        rooms.setRoomStatus(snapshot.room.pin, 'finished');
+        const identity = usePlayerStore.getState();
+        const own = snapshot.ranking.find((entry) => entry.playerId === identity.playerId);
+        if (own) game.setFinalResult(snapshot.room.pin, { score: own.score, position: own.position, totalPlayers: snapshot.ranking.length });
+      }
+      useRealtimeStore.getState().setSynced();
+      if (snapshot.room.status === 'finished' && !snapshot.game) {
+        if (usePlayerStore.getState().roomPin === snapshot.room.pin) usePlayerStore.getState().clearPlayer();
+        endRealtimeSession();
+      } else if (snapshot.room.status !== 'finished' && snapshot.game?.status === 'IN_PROGRESS' && !snapshot.game.currentQuestion && useRealtimeStore.getState().role === 'host') {
+        requestFirstQuestion(snapshot.room.pin);
+      }
+      break;
+    }
     case 'PLAYER_JOINED': rooms.addPlayer(event.payload.roomPin, event.payload.player); break;
     case 'PLAYER_LEFT': rooms.removePlayer(event.payload.roomPin, event.payload.playerId); break;
     case 'GAME_STARTED':
       game.startGame(event.payload.quizId, event.payload.roomPin, event.payload.totalQuestions);
       rooms.setRoomStatus(event.payload.roomPin, 'in-progress');
+      if (useRealtimeStore.getState().role === 'host') requestFirstQuestion(event.payload.roomPin);
       break;
     case 'QUESTION_STARTED': {
       if (event.payload.question && event.payload.questionEndsAt && event.payload.gameId) {
@@ -28,20 +56,16 @@ export function handleServerEvent(event: ServerEvent): void {
       }
       break;
     }
-    case 'ANSWER_SUBMITTED':
-      if (event.payload.statistics) game.setQuestionStatistics(event.payload.roomPin, event.payload.statistics);
+    case 'ANSWER_SUBMITTED': {
+      const identity = usePlayerStore.getState();
+      if (identity.playerId === event.payload.playerId && identity.roomPin === event.payload.roomPin) game.submitAnswer(event.payload.roomPin);
       break;
+    }
     case 'QUESTION_ENDED': game.lockQuestion(event.payload.roomPin, event.payload.timedOut); break;
-    case 'QUESTION_RESULT':
-      game.setQuestionResult(event.payload.roomPin, event.payload.result);
-      if (event.payload.statistics) game.setQuestionStatistics(event.payload.roomPin, event.payload.statistics);
-      break;
     case 'RANKING_UPDATED': game.setRanking(event.payload.roomPin, event.payload.ranking); break;
     case 'GAME_FINISHED':
-      if (event.payload.result) game.setFinalResult(event.payload.roomPin, event.payload.result);
-      if (event.payload.statistics) game.setFinalStatistics(event.payload.roomPin, event.payload.statistics);
-      if (event.payload.ranking) {
-        game.setRanking(event.payload.roomPin, event.payload.ranking);
+      game.setRanking(event.payload.roomPin, event.payload.ranking);
+      {
         const identity = usePlayerStore.getState();
         const own = event.payload.ranking.find((entry) => entry.playerId === identity.playerId);
         if (own) game.setFinalResult(event.payload.roomPin, { score: own.score, position: own.position, totalPlayers: event.payload.ranking.length });
@@ -52,9 +76,16 @@ export function handleServerEvent(event: ServerEvent): void {
     case 'ROOM_CLOSED':
       rooms.closeRoom(event.payload.roomPin);
       game.finishGame(event.payload.roomPin);
+      if (usePlayerStore.getState().roomPin === event.payload.roomPin) usePlayerStore.getState().clearPlayer();
+      endRealtimeSession();
       break;
     default: assertNever(event);
   }
+}
+
+function requestFirstQuestion(roomPin: string): void {
+  try { sendCommand({ type: 'START_QUESTION', payload: { roomPin } }); }
+  catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível iniciar a pergunta', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); }
 }
 
 function friendlyRealtimeMessage(code: string): string {
@@ -63,7 +94,7 @@ function friendlyRealtimeMessage(code: string): string {
     INVALID_ROOM_PIN: 'O PIN informado é inválido.',
     ROOM_CLOSED: 'Esta sala já foi encerrada.',
     ROOM_NOT_JOINABLE: 'Esta sala não está aceitando novos jogadores.',
-    DUPLICATE_PLAYER_NAME: 'Já existe um jogador com esse nome nesta sala.',
+    PLAYER_ALREADY_EXISTS: 'Já existe um jogador com esse nome nesta sala.',
     INVALID_PLAYER_NAME: 'Informe um nome válido para entrar na sala.',
     QUESTION_NOT_EXPIRED: 'Aguarde o timer chegar a zero antes de avançar.',
     QUESTION_EXPIRED: 'O tempo para responder terminou.',

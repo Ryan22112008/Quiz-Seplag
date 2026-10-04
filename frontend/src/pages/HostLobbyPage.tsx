@@ -16,35 +16,49 @@ import { useQuizStore } from '@/stores/quizStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useGameStore } from '@/stores/gameStore';
 import { QUIZ_CATEGORIES } from '@/types/quiz';
-import { api, toFrontendRoom } from '@/services/api/client';
-import { subscribeRoom, sendCommand } from '@/services/realtime/session';
+import { api } from '@/services/api/client';
+import { subscribeRoom, sendCommand, closeRoomRealtime } from '@/services/realtime/session';
 import { useToastStore } from '@/components/ui/useToastStore';
+import { RealtimeConnectionNotice } from '@/components/game/RealtimeConnectionNotice';
+import { useRealtimeStore } from '@/stores/realtimeStore';
 
 export function HostLobbyPage() {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const [confirmClose, setConfirmClose] = useState(false);
   const quiz = useQuizStore((state) => quizId ? state.getQuizById(quizId) : undefined);
+  const upsertQuiz = useQuizStore((state) => state.upsertQuiz);
+  const [loadingQuiz, setLoadingQuiz] = useState(Boolean(quizId && !quiz));
   const room = useRoomStore((state) => state.rooms.find((item) => item.quizId === quizId && item.status !== 'finished'));
   const clearRoom = useRoomStore((state) => state.clearRoom);
-  const upsertRoom = useRoomStore((state) => state.upsertRoom);
   const game = useGameStore((state) => state.games[room?.pin ?? '']);
   const gameStatus = game?.status;
   const activeRoomPin = room?.pin;
+  const connectionState = useRealtimeStore((state) => state.connectionState);
 
   useEffect(() => {
     if (!activeRoomPin) return;
-    let active = true;
-    void Promise.all([api.getRoom(activeRoomPin).then((serverRoom) => { if (active) upsertRoom(toFrontendRoom(serverRoom)); }), subscribeRoom(activeRoomPin)])
+    void subscribeRoom(activeRoomPin, undefined, room?.hostToken)
       .catch((error: unknown) => useToastStore.getState().push({ variant: 'danger', title: 'Conexão com a sala indisponível', description: error instanceof Error ? error.message : 'Tente novamente.' }));
-    return () => { active = false; };
-  }, [activeRoomPin, upsertRoom]);
+  }, [activeRoomPin, room?.hostToken]);
+
+  useEffect(() => {
+    if (quiz || !quizId) { setLoadingQuiz(false); return; }
+    let current = true;
+    void api.getQuiz(quizId).then((value) => { if (current) { upsertQuiz(value); setLoadingQuiz(false); } }).catch((error: unknown) => { if (current) { setLoadingQuiz(false); useToastStore.getState().push({ variant: 'danger', title: 'Quiz indisponível', description: error instanceof Error ? error.message : 'Não foi possível carregar o quiz.' }); } });
+    return () => { current = false; };
+  }, [quiz, quizId, upsertQuiz]);
 
   useEffect(() => {
     if (gameStatus && quizId) navigate(`/criar/${quizId}/partida`);
   }, [gameStatus, navigate, quizId]);
 
+  useEffect(() => {
+    if (room?.status === 'finished' && quizId) navigate(`/criar/${quizId}/revisar`);
+  }, [navigate, quizId, room?.status]);
+
   if (!quizId || !quiz) {
+    if (loadingQuiz) return <Container size="md" className="flex min-h-screen items-center justify-center"><p className="type-body text-neutral-600">Carregando quiz…</p></Container>;
     return (
       <Container size="md" className="flex min-h-screen items-center justify-center py-10">
         <Card variant="elevated" className="w-full max-w-lg">
@@ -81,8 +95,8 @@ export function HostLobbyPage() {
     try { sendCommand({ type: 'START_GAME', payload: { roomPin: room.pin } }); }
     catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível iniciar', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); }
   };
-  const endRoom = () => {
-    try { sendCommand({ type: 'CLOSE_ROOM', payload: { roomPin: room.pin } }); } catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível encerrar a sala', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); return; }
+  const endRoom = async () => {
+    try { await closeRoomRealtime(room.pin); } catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível encerrar a sala', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); return; }
     clearRoom(room.pin);
     navigate(`/criar/${quizId}/revisar`);
   };
@@ -98,6 +112,7 @@ export function HostLobbyPage() {
 
       <main>
         <Container size="xl" className="py-8 sm:py-12">
+          <div className="mb-4"><RealtimeConnectionNotice /></div>
           <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary-800 via-primary-700 to-accent-700 px-5 py-10 text-center text-white shadow-lg sm:px-10 sm:py-14">
             <Badge variant="success" className="mb-4">Sala pronta</Badge>
             <h1 className="type-h1 text-white">Sua sala está pronta</h1>
@@ -146,7 +161,7 @@ export function HostLobbyPage() {
           <section className="mx-auto mt-8 flex max-w-2xl flex-col items-center gap-3 text-center">
             {room.status === 'waiting' ? (
               <>
-                <Button size="lg" className="w-full sm:w-auto sm:min-w-64" onClick={startGame}>
+                <Button size="lg" className="w-full sm:w-auto sm:min-w-64" onClick={startGame} disabled={connectionState !== 'synced'}>
                   <Play className="size-5" aria-hidden="true" />Iniciar partida
                 </Button>
                 <p className="type-caption text-neutral-500" aria-live="polite">{countLabel} na sala</p>

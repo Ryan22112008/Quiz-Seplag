@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2, DoorOpen, Flag, Home, Users } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
@@ -18,40 +18,45 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useQuizStore } from '@/stores/quizStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useGameStore } from '@/stores/gameStore';
-import { sendCommand } from '@/services/realtime/session';
+import { sendCommand, subscribeRoom } from '@/services/realtime/session';
+import { api } from '@/services/api/client';
 import { useToastStore } from '@/components/ui/useToastStore';
+import { RealtimeConnectionNotice } from '@/components/game/RealtimeConnectionNotice';
+import { useRealtimeStore } from '@/stores/realtimeStore';
 
 export function HostGamePage() {
   const { quizId = '' } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const [confirmEnd, setConfirmEnd] = useState(false);
-  const [timerExpired, setTimerExpired] = useState(false);
   const quiz = useQuizStore((state) => state.getQuizById(quizId));
+  const upsertQuiz = useQuizStore((state) => state.upsertQuiz);
+  const [loadingQuiz, setLoadingQuiz] = useState(Boolean(quizId && !quiz));
   const room = useRoomStore((state) => state.rooms.find((item) => item.quizId === quizId));
   const game = useGameStore((state) => room ? state.games[room.pin] : undefined);
-  const resetGame = useGameStore((state) => state.resetGame);
-  const closeRoom = useRoomStore((state) => state.closeRoom);
-  const clearRoom = useRoomStore((state) => state.clearRoom);
   const phaseRef = useRef<HTMLDivElement>(null);
-  const questionStartRequested = useRef<string | null>(null);
-  const handleExpire = useCallback(() => setTimerExpired(true), []);
   const gameStatus = game?.status;
   const activeRoomPin = room?.pin;
+  const connectionState = useRealtimeStore((state) => state.connectionState);
 
   useEffect(() => {
-    if (gameStatus === 'waiting' && activeRoomPin && questionStartRequested.current !== activeRoomPin) {
-      questionStartRequested.current = activeRoomPin;
-      try { sendCommand({ type: 'START_QUESTION', payload: { roomPin: activeRoomPin } }); }
-      catch (error) { questionStartRequested.current = null; useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível iniciar a pergunta', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); }
-    }
-  }, [gameStatus, activeRoomPin]);
+    if (!activeRoomPin) return;
+    void subscribeRoom(activeRoomPin, undefined, room?.hostToken).catch((error: unknown) => useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível sincronizar a partida', description: error instanceof Error ? error.message : 'Verifique a conexão.' }));
+  }, [activeRoomPin, room?.hostToken]);
+
+  useEffect(() => {
+    if (quiz || !quizId) { setLoadingQuiz(false); return; }
+    if (!room?.pin || !room.hostToken) { setLoadingQuiz(false); return; }
+    let current = true;
+    void api.getHostQuiz(room.pin, room.hostToken).then((value) => { if (current) { upsertQuiz(value); setLoadingQuiz(false); } }).catch((error: unknown) => { if (current) { setLoadingQuiz(false); useToastStore.getState().push({ variant: 'danger', title: 'Quiz indisponível', description: error instanceof Error ? error.message : 'Não foi possível carregar o quiz.' }); } });
+    return () => { current = false; };
+  }, [quiz, quizId, room?.pin, room?.hostToken, upsertQuiz]);
 
   useEffect(() => {
     if (gameStatus === 'locked' || gameStatus === 'results' || gameStatus === 'finished') phaseRef.current?.focus();
   }, [gameStatus, game?.currentQuestionIndex]);
-  useEffect(() => { setTimerExpired(false); }, [game?.currentQuestionId]);
 
   if (!quiz || !room) {
+    if (loadingQuiz) return <Container size="md" className="flex min-h-screen items-center justify-center"><Spinner label="Carregando quiz" /></Container>;
     return <HostState title="Partida não encontrada" description="O quiz, a sala ou o estado da partida não está disponível neste dispositivo." action={<ButtonLink to="/" size="lg"><Home className="size-4" aria-hidden="true" />Voltar ao início</ButtonLink>} />;
   }
   if (!game) return <Container size="md" className="flex min-h-screen items-center justify-center"><div className="flex flex-col items-center gap-3"><Spinner label="Carregando resultado" /><p className="type-body text-neutral-600">Carregando resultado...</p></div></Container>;
@@ -60,18 +65,8 @@ export function HostGamePage() {
   const question = game.currentQuestion && sourceQuestion ? { ...sourceQuestion, id: game.currentQuestion.questionId, question: game.currentQuestion.text, options: game.currentQuestion.options } : undefined;
   const lastQuestion = game.currentQuestionIndex === game.totalQuestions - 1;
   const phase = game.status;
-  const leaveToReview = () => {
-    navigate(`/criar/${quizId}/revisar`);
-    resetGame(room.pin);
-    closeRoom(room.pin);
-    clearRoom(room.pin);
-  };
-  const leaveToHome = () => {
-    navigate('/');
-    resetGame(room.pin);
-    closeRoom(room.pin);
-    clearRoom(room.pin);
-  };
+  const leaveToReview = () => { navigate(`/criar/${quizId}/revisar`); };
+  const leaveToHome = () => { navigate('/'); };
   const endGame = () => {
     try { sendCommand({ type: 'FINISH_GAME', payload: { roomPin: room.pin } }); }
     catch (error) { useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível encerrar a partida', description: error instanceof Error ? error.message : 'Verifique a conexão.' }); }
@@ -116,19 +111,20 @@ export function HostGamePage() {
   const questionResultVisible = game.status === 'results';
   const correctOptionId = questionResultVisible ? game.questionResult?.correctOptionId ?? question.correctOptionId : undefined;
   const optionLabels = ['A', 'B', 'C', 'D'];
-  const disabledReason = game.status === 'question' ? 'O servidor só avança quando o tempo da pergunta termina.' : 'Aguarde a próxima pergunta.';
+  const disabledReason = game.status === 'question' ? 'Aguarde o servidor confirmar o fim da pergunta.' : 'Aguarde a próxima pergunta.';
 
   return (
     <div className="min-h-screen bg-neutral-50">
       <header className="border-b border-border bg-surface">
         <Container size="xl" className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center justify-between gap-3"><Logo /><Badge variant="primary">Anfitrião</Badge></div>
-          <div className="flex items-center gap-4 sm:w-1/2"><GameProgress current={game.currentQuestionIndex + 1} total={game.totalQuestions} />{game.status === 'question' && game.endsAt !== null && <Timer key={`${room.pin}-${game.currentQuestionIndex}`} duration={question.timeLimit} endsAt={game.endsAt} size="sm" onExpire={handleExpire} />}</div>
+          <div className="flex items-center gap-4 sm:w-1/2"><GameProgress current={game.currentQuestionIndex + 1} total={game.totalQuestions} />{game.status === 'question' && game.endsAt !== null && <Timer key={`${room.pin}-${game.currentQuestionIndex}`} duration={question.timeLimit} endsAt={game.endsAt} size="sm" onExpire={() => undefined} />}</div>
         </Container>
       </header>
 
       <main>
         <Container size="xl" className="py-6 sm:py-10">
+          <div className="mb-4"><RealtimeConnectionNotice /></div>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div><p className="type-caption text-neutral-500">PIN {room.pin} · Pergunta {game.currentQuestionIndex + 1} de {game.totalQuestions}</p><h1 className="type-h2 text-neutral-900">{quiz.title}</h1></div>
             <div className="flex items-center gap-3"><GameStatus status={phase} /><Button variant="outline" onClick={() => setConfirmEnd(true)}><DoorOpen className="size-4" aria-hidden="true" />Encerrar partida</Button></div>
@@ -176,8 +172,8 @@ export function HostGamePage() {
                 <p className="type-caption border-t border-border pt-3 text-neutral-500">Respostas e ranking recebidos do servidor.</p>
               </CardContent></Card>
 
-              {game.status === 'question' && <Button size="lg" className="w-full" onClick={next} disabled={!timerExpired}><Flag className="size-4" aria-hidden="true" />{lastQuestion ? 'Finalizar após o tempo' : 'Próxima pergunta'}</Button>}
-              {game.status !== 'question' && <div><Button size="lg" className="w-full" disabled aria-describedby="advance-disabled-reason">{lastQuestion ? 'Ver resultado final' : 'Aguardando pergunta'}</Button><p id="advance-disabled-reason" className="type-caption mt-2 text-center text-neutral-500">{disabledReason}</p></div>}
+              {game.status === 'locked' && <Button size="lg" className="w-full" onClick={next} disabled={connectionState !== 'synced'}><Flag className="size-4" aria-hidden="true" />{lastQuestion ? 'Ver resultado final' : 'Próxima pergunta'}</Button>}
+              {game.status !== 'locked' && <div><Button size="lg" className="w-full" disabled aria-describedby="advance-disabled-reason">{lastQuestion ? 'Ver resultado final' : 'Aguardando pergunta'}</Button><p id="advance-disabled-reason" className="type-caption mt-2 text-center text-neutral-500">{disabledReason}</p></div>}
               <p className="type-caption text-center text-neutral-500">O servidor valida o tempo e controla o avanço da partida.</p>
             </aside>
           </section>

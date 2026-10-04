@@ -45,6 +45,7 @@ const errorHandler: ErrorRequestHandler = (error: unknown, _request, response, _
     return;
   }
 
+  console.error('Falha interna ao processar requisição.', error instanceof Error ? error.name : 'UnknownError');
   response.status(500).json({
     error: { code: 'INTERNAL_ERROR', message: 'Ocorreu um erro interno.' },
   });

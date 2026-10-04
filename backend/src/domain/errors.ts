@@ -31,7 +31,8 @@ export type DomainErrorCode =
   | 'INVALID_ROOM_TRANSITION'
   | 'ROOM_PIN_CONFLICT'
   | 'ROOM_ID_CONFLICT'
-  | 'ROOM_STORE_ERROR';
+  | 'ROOM_STORE_ERROR'
+  | 'FORBIDDEN';
 
 export class DomainError extends Error {
   constructor(

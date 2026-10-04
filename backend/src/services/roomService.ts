@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { DomainError } from '../domain/errors.js';
 import type { RoomPlayer } from '../domain/player.js';
 import type { Room, RoomStatus } from '../domain/room.js';
@@ -24,6 +24,7 @@ interface RoomServiceDependencies {
 export interface JoinedRoom {
   room: Room;
   player: RoomPlayer;
+  playerToken: string;
 }
 
 function securePin(): string {
@@ -61,6 +62,8 @@ export class RoomService {
   private readonly createId: () => string;
   private readonly generatePin: () => string;
   private readonly maxPinAttempts: number;
+  private readonly hostTokens = new Map<string, string>();
+  private readonly playerTokens = new Map<string, { roomId: string; token: string }>();
 
   constructor(
     private readonly repository: RoomRepository,
@@ -102,6 +105,25 @@ export class RoomService {
     throw new DomainError('ROOM_STORE_ERROR', 503, 'Não foi possível reservar um PIN livre. Tente novamente.');
   }
 
+  async createRoomWithHostToken(quizId: unknown): Promise<{ room: Room; hostToken: string }> {
+    const room = await this.createRoom(quizId);
+    const hostToken = randomBytes(32).toString('base64url');
+    this.hostTokens.set(room.id, hostToken);
+    return { room, hostToken };
+  }
+
+  isValidHostToken(roomId: string, token: string): boolean {
+    const expected = this.hostTokens.get(roomId);
+    if (!expected || expected.length !== token.length) return false;
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(token));
+  }
+
+  isValidPlayerToken(roomId: string, playerId: string, token: string): boolean {
+    const capability = this.playerTokens.get(playerId);
+    if (!capability || capability.roomId !== roomId || capability.token.length !== token.length) return false;
+    return timingSafeEqual(Buffer.from(capability.token), Buffer.from(token));
+  }
+
   async getRoomById(roomId: string): Promise<Room> {
     const room = await this.repository.findById(roomId);
     if (!room) throw new DomainError('ROOM_NOT_FOUND', 404, 'Sala não encontrada.');
@@ -129,7 +151,9 @@ export class RoomService {
 
     const player: RoomPlayer = { id: this.createId(), name };
     const updatedRoom = await this.repository.addPlayer(room.id, player);
-    return { room: updatedRoom, player };
+    const playerToken = randomBytes(32).toString('base64url');
+    this.playerTokens.set(player.id, { roomId: room.id, token: playerToken });
+    return { room: updatedRoom, player, playerToken };
   }
 
   async leaveRoom(pin: string, playerId: string): Promise<Room> {
@@ -137,7 +161,9 @@ export class RoomService {
     const playerExists = room.players.some((player) => player.id === playerId);
     if (!playerExists) throw new DomainError('PLAYER_NOT_FOUND', 404, 'Jogador não encontrado nesta sala.');
 
-    return this.repository.removePlayer(room.id, playerId);
+    const updated = await this.repository.removePlayer(room.id, playerId);
+    this.playerTokens.delete(playerId);
+    return updated;
   }
 
   async setRoomStatus(roomId: string, nextStatus: RoomStatus): Promise<Room> {
@@ -154,7 +180,7 @@ export class RoomService {
     return this.repository.update({ ...room, status: nextStatus });
   }
 
-  closeRoom(roomId: string): Promise<Room> {
+  async closeRoom(roomId: string): Promise<Room> {
     return this.setRoomStatus(roomId, 'FINISHED');
   }
 }

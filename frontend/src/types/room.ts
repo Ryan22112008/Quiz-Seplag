@@ -5,11 +5,12 @@ export interface RoomPlayer {
 
 export type RoomStatus = 'waiting' | 'starting' | 'in-progress' | 'finished';
 
-/** Local-only room state. A future backend will own room identity and membership. */
+/** Client-side room projection and local host capability for reconnecting the same room. */
 export interface Room {
   id?: string;
   pin: string;
   quizId: string;
   status: RoomStatus;
   players: RoomPlayer[];
+  hostToken?: string;
 }

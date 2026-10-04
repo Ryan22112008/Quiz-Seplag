@@ -11,7 +11,7 @@ import { DomainError } from '../domain/errors.js';
 const databaseTest = (name: string, run: () => Promise<void>) =>
   it(name, { skip: process.env.RUN_DATABASE_TESTS !== 'true' }, run);
 
-describe('Prisma repositories (PostgreSQL)', () => {
+describe('Prisma repositories (MySQL)', () => {
   databaseTest('persiste quiz, relações, sala e jogadores após reconectar ao banco', async () => {
     const quizId = randomUUID(); const questionId = randomUUID(); const optionIds = Array.from({ length: 4 }, () => randomUUID());
     const roomId = randomUUID(); const playerId = randomUUID();
@@ -24,7 +24,6 @@ describe('Prisma repositories (PostgreSQL)', () => {
 
     try {
       await quizRepo.create(quiz);
-      await roomRepo.create({ ...room, players: [] });
       const createdRoom = await roomRepo.create({ ...room, players: [] });
       assert.equal(createdRoom.players.length, 0);
       await roomRepo.addPlayer(roomId, room.players[0]!);

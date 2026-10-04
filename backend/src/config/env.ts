@@ -1,5 +1,10 @@
 import type { AppConfig } from '../types/environment.js';
 
+function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/gu, '');
+  return normalized === 'localhost' || normalized.endsWith('.localhost') || normalized === '::1' || normalized.startsWith('127.');
+}
+
 function readPort(value: string | undefined): number {
   if (value === undefined || value.trim() === '') return 3000;
 
@@ -11,8 +16,8 @@ function readPort(value: string | undefined): number {
   return port;
 }
 
-function readFrontendOrigins(value: string | undefined): string[] {
-  const origins = (value ?? 'http://localhost:5173,http://127.0.0.1:5173')
+function readFrontendOrigins(value: string | undefined, nodeEnv: string): string[] {
+  const origins = (value ?? (nodeEnv === 'production' ? '' : 'http://localhost:5173,http://127.0.0.1:5173'))
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
@@ -26,12 +31,32 @@ function readFrontendOrigins(value: string | undefined): string[] {
     }
   }
 
+  if (nodeEnv === 'production') {
+    if (origins.length === 0) throw new Error('FRONTEND_ORIGINS é obrigatório em produção.');
+    if (origins.some((origin) => {
+      const parsed = new URL(origin);
+      return parsed.protocol !== 'https:' || isLoopbackHostname(parsed.hostname);
+    })) throw new Error('FRONTEND_ORIGINS deve conter apenas origens HTTPS públicas em produção.');
+  }
+
   return origins;
 }
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppConfig {
+  const nodeEnv = environment.NODE_ENV ?? 'development';
+  if (!['development', 'production', 'test'].includes(nodeEnv)) {
+    throw new Error('NODE_ENV deve ser development, production ou test.');
+  }
+  if (nodeEnv === 'production') {
+    if (!environment.DATABASE_URL) throw new Error('DATABASE_URL é obrigatório em produção.');
+    let databaseUrl: URL;
+    try { databaseUrl = new URL(environment.DATABASE_URL); }
+    catch { throw new Error('DATABASE_URL deve ser uma URL válida para MySQL.'); }
+    if (databaseUrl.protocol !== 'mysql:') throw new Error('DATABASE_URL deve usar o provider MySQL definido no schema Prisma.');
+  }
   return {
+    nodeEnv: nodeEnv as AppConfig['nodeEnv'],
     port: readPort(environment.PORT),
-    frontendOrigins: readFrontendOrigins(environment.FRONTEND_ORIGINS),
+    frontendOrigins: readFrontendOrigins(environment.FRONTEND_ORIGINS, nodeEnv),
   };
 }
