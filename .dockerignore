@@ -1,0 +1,14 @@
+.git
+.github
+.codex
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+frontend

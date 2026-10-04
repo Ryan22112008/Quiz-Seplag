@@ -1,11 +1,10 @@
 services:
   - type: web
     name: quiz-seplag-api
-    runtime: node
-    rootDir: backend
-    buildCommand: npm ci && npm run build
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     preDeployCommand: npm run db:deploy
-    startCommand: npm start
     healthCheckPath: /health
     numInstances: 1
     envVars:
