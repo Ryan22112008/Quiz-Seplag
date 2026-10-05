@@ -52,7 +52,7 @@ export function PlayerGamePage() {
   };
 
   if (!player.playerId || player.roomPin !== pin) return <StateCard title="Sessão do jogador não encontrada" description="Entre na sala novamente para participar desta partida." action={<ButtonLink to={`/jogar/${pin}`} size="lg">Entrar na sala</ButtonLink>} />;
-  if (connectionState !== 'synced' || sessionRoomPin !== pin || sessionPlayerId !== player.playerId) return <StateCard title="Sincronizando com a sala" description="A interface será liberada após receber o estado atual do servidor." action={<RealtimeConnectionNotice />} />;
+  if (connectionState !== 'synced' || sessionRoomPin !== pin || sessionPlayerId !== player.playerId) return <StateCard title="Atualizando a sala" description="Aguarde um instante para ver o estado atual da partida." action={<RealtimeConnectionNotice />} />;
   if (!game || game.status === 'waiting') return <StateCard title="Aguardando a partida" description="A pergunta aparecerá aqui quando o anfitrião iniciar a partida." action={<ButtonLink to={`/jogar/${pin}/aguardando`} size="lg">Voltar ao lobby</ButtonLink>} />;
 
   if (game.status === 'finished') return (
@@ -65,7 +65,7 @@ export function PlayerGamePage() {
       </CardContent></Card>
     </Container>
   );
-  if (!question) return <StateCard title="Preparando pergunta" description="Aguardando o servidor enviar a pergunta atual." action={<ButtonLink to={`/jogar/${pin}/aguardando`} size="lg">Voltar ao lobby</ButtonLink>} />;
+  if (!question) return <StateCard title="Preparando pergunta" description="A pergunta aparecerá aqui em instantes." action={<ButtonLink to={`/jogar/${pin}/aguardando`} size="lg">Voltar ao lobby</ButtonLink>} />;
 
   const optionsDisabled = connectionState !== 'synced' || game.status !== 'question' || game.answerStatus === 'submitted' || sending;
   const submitDisabled = optionsDisabled || !game.selectedOptionId;
@@ -78,10 +78,10 @@ export function PlayerGamePage() {
         <Card variant="elevated" className="overflow-hidden"><CardContent className="flex flex-col gap-7 p-5 sm:gap-8 sm:p-8">
           <div ref={focusRef} tabIndex={-1} className="rounded-md focus:outline-2 focus:outline-offset-4 focus:outline-primary-500"><QuizQuestion index={game.currentQuestionIndex + 1} total={game.totalQuestions} question={question.text} /></div>
           <div role="group" aria-label="Alternativas de resposta" className="grid gap-3">{question.options.map((option, index) => <QuizOption key={option.id} label={labels[index] ?? String(index + 1)} text={option.text} selected={game.selectedOptionId === option.id} state={game.selectedOptionId === option.id ? 'selected' : 'default'} disabled={optionsDisabled} onSelect={() => selectOption(pin, option.id)} />)}</div>
-          {game.answerStatus === 'submitted' && <Alert variant="success" title="Resposta registrada">Sua resposta foi recebida pelo servidor.</Alert>}
+          {game.answerStatus === 'submitted' && <Alert variant="success" title="Resposta registrada">Sua resposta foi salva.</Alert>}
           {game.status === 'results' && <RankingList entries={game.ranking} />}
           <Button size="lg" className="w-full" onClick={() => void sendAnswer()} disabled={submitDisabled}>{sending ? 'Enviando…' : game.answerStatus === 'submitted' ? 'Resposta enviada' : 'Responder'}</Button>
-          <p className="type-caption text-center text-neutral-500">A pontuação oficial é calculada pelo servidor.</p>
+          <p className="type-caption text-center text-neutral-500">Sua pontuação é calculada automaticamente ao longo da partida.</p>
         </CardContent></Card>
       </Container></main>
     </div>

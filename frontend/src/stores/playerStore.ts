@@ -34,8 +34,7 @@ function saveIdentity(identity: Pick<PlayerState, 'playerName' | 'roomPin' | 'pl
 }
 
 /**
- * Player state for the join game flow.
- * Stores local player information without backend integration.
+ * Player identity and active room session for the join game flow.
  */
 export const usePlayerStore = create<PlayerState>((set) => ({
   ...readIdentity(),

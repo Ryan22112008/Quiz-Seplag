@@ -140,7 +140,7 @@ function clearRetryTimer(): void {
 }
 function waitFor(accept: (event: ServerEvent) => boolean): Promise<ServerEvent> {
   return new Promise((resolve, reject) => {
-    const item: PendingEvent = { accept, resolve, reject, timer: window.setTimeout(() => finish(item, new Error('O servidor não confirmou a sincronização a tempo.')), 8000) };
+  const item: PendingEvent = { accept, resolve, reject, timer: window.setTimeout(() => finish(item, new Error('A conexão demorou para responder. Tente novamente.')), 8000) };
     pending.add(item);
   });
 }
@@ -158,5 +158,5 @@ function friendlyError(code: string): string {
     QUESTION_NOT_EXPIRED: 'Aguarde a pergunta terminar antes de avançar.', QUESTION_EXPIRED: 'O tempo para responder terminou.',
     NOT_SUBSCRIBED: 'A conexão com a sala não está ativa.',
   };
-  return messages[code] ?? 'O servidor não conseguiu concluir a ação.';
+  return messages[code] ?? 'Não foi possível concluir esta ação. Tente novamente.';
 }

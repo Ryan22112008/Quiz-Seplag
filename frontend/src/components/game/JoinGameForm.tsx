@@ -22,11 +22,7 @@ export interface JoinGameFormProps {
   className?: string;
 }
 
-/**
- * PIN entry form.
- * Format validation only (React Hook Form + Zod) — there is no backend yet,
- * so a valid PIN simply routes to `/jogar/:pin`. No HTTP, no loading state.
- */
+/** PIN entry form for players joining an existing room. */
 export function JoinGameForm({
   pinInputRef,
   title = 'Entrar em uma sala',

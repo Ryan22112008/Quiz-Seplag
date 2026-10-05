@@ -16,7 +16,7 @@ const sizes = {
   lg: 'px-3 py-3 text-2xl gap-2 sm:px-8 sm:py-4 sm:text-4xl sm:gap-3',
 } as const;
 
-/** Large, high-legibility room PIN. Copy is local-only (clipboard), no backend. */
+/** Large, easy-to-read room PIN with optional clipboard support. */
 export function GamePin({ pin, size = 'md', allowCopy = true, className }: GamePinProps) {
   const [copied, setCopied] = useState(false);
   const pushToast = useToastStore((state) => state.push);

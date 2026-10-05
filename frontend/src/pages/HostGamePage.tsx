@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, DoorOpen, Flag, Home, Users } from 'lucide-react';
+import { CheckCircle2, DoorOpen, FastForward, Flag, Home, Users } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { Logo } from '@/components/layout/Logo';
 import { GameProgress } from '@/components/game/GameProgress';
@@ -111,7 +111,7 @@ export function HostGamePage() {
   const questionResultVisible = game.status === 'results';
   const correctOptionId = questionResultVisible ? game.questionResult?.correctOptionId ?? question.correctOptionId : undefined;
   const optionLabels = ['A', 'B', 'C', 'D'];
-  const disabledReason = game.status === 'question' ? 'Aguarde o servidor confirmar o fim da pergunta.' : 'Aguarde a próxima pergunta.';
+  const disabledReason = 'Aguarde a atualização da partida.';
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -138,7 +138,7 @@ export function HostGamePage() {
                 </div>
                 {game.status === 'results' ? (
                   <div className="mt-7 flex flex-col gap-6" aria-live="polite">
-                    <div className="rounded-2xl border border-primary-200 bg-primary-50 p-5 text-center"><h2 className="type-h2 text-primary-950">Resultados da pergunta</h2><p className="type-body-sm mt-2 text-primary-800">Respostas e pontuações só serão exibidas quando os dados chegarem do servidor.</p></div>
+                    <div className="rounded-2xl border border-primary-200 bg-primary-50 p-5 text-center"><h2 className="type-h2 text-primary-950">Resultados da pergunta</h2><p className="type-body-sm mt-2 text-primary-800">Confira as respostas e a pontuação desta pergunta.</p></div>
                     <div className="grid gap-6 xl:grid-cols-2">
                       <div><h3 className="type-h3 mb-3 text-neutral-900">Alternativas e respostas</h3><div className="flex flex-col gap-2">
                         {question.options.map((option, index) => {
@@ -169,18 +169,18 @@ export function HostGamePage() {
                 <div className="flex items-center justify-between gap-3"><span className="type-body-sm flex items-center gap-2 text-neutral-600"><Users className="size-4" aria-hidden="true" />Jogadores</span><strong className="type-h3 text-neutral-900">{room.players.length}</strong></div>
                 <StatCard label="Respostas registradas" value={game.questionStatistics?.totalResponses ?? game.ranking.length} />
                 <StatCard label="Respostas corretas" value={game.questionStatistics?.correctResponses ?? '—'} />
-                <p className="type-caption border-t border-border pt-3 text-neutral-500">Respostas e ranking recebidos do servidor.</p>
+                <p className="type-caption border-t border-border pt-3 text-neutral-500">Acompanhe as respostas e a classificação da turma.</p>
               </CardContent></Card>
 
+              {game.status === 'question' && <div><Button size="lg" variant="outline" className="w-full" onClick={next} disabled={connectionState !== 'synced'}><FastForward className="size-4" aria-hidden="true" />{lastQuestion ? 'Pular e ver resultado' : 'Pular pergunta'}</Button><p className="type-caption mt-2 text-center text-neutral-500">{lastQuestion ? 'A partida será encerrada e o ranking será exibido.' : 'A próxima pergunta será aberta para todos.'}</p></div>}
               {game.status === 'locked' && <Button size="lg" className="w-full" onClick={next} disabled={connectionState !== 'synced'}><Flag className="size-4" aria-hidden="true" />{lastQuestion ? 'Ver resultado final' : 'Próxima pergunta'}</Button>}
-              {game.status !== 'locked' && <div><Button size="lg" className="w-full" disabled aria-describedby="advance-disabled-reason">{lastQuestion ? 'Ver resultado final' : 'Aguardando pergunta'}</Button><p id="advance-disabled-reason" className="type-caption mt-2 text-center text-neutral-500">{disabledReason}</p></div>}
-              <p className="type-caption text-center text-neutral-500">O servidor valida o tempo e controla o avanço da partida.</p>
+              {game.status === 'results' && <div><Button size="lg" className="w-full" disabled aria-describedby="advance-disabled-reason">{lastQuestion ? 'Ver resultado final' : 'Próxima pergunta'}</Button><p id="advance-disabled-reason" className="type-caption mt-2 text-center text-neutral-500">{disabledReason}</p></div>}
             </aside>
           </section>
         </Container>
       </main>
 
-      <Modal open={confirmEnd} onClose={() => setConfirmEnd(false)} title="Encerrar partida?" description="A partida local será encerrada e você verá o resultado final." actions={<><Button variant="outline" onClick={() => setConfirmEnd(false)}>Continuar partida</Button><Button variant="danger" onClick={endGame}>Encerrar partida</Button></>}>
+      <Modal open={confirmEnd} onClose={() => setConfirmEnd(false)} title="Encerrar partida?" description="A partida será encerrada e você verá o resultado final." actions={<><Button variant="outline" onClick={() => setConfirmEnd(false)}>Continuar partida</Button><Button variant="danger" onClick={endGame}>Encerrar partida</Button></>}>
         <p className="type-body-sm text-neutral-600">Dados finais ausentes permanecerão como “—”.</p>
       </Modal>
     </div>

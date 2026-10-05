@@ -12,8 +12,7 @@ interface QuizStore {
 }
 
 /**
- * Quiz store for frontend state management.
- * Stores quizzes locally without backend integration.
+ * In-memory quiz cache used across the creation and hosting flows.
  */
 export const useQuizStore = create<QuizStore>((set, get) => ({
   quizzes: [],

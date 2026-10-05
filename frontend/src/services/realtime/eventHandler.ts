@@ -96,11 +96,11 @@ function friendlyRealtimeMessage(code: string): string {
     ROOM_NOT_JOINABLE: 'Esta sala não está aceitando novos jogadores.',
     PLAYER_ALREADY_EXISTS: 'Já existe um jogador com esse nome nesta sala.',
     INVALID_PLAYER_NAME: 'Informe um nome válido para entrar na sala.',
-    QUESTION_NOT_EXPIRED: 'Aguarde o timer chegar a zero antes de avançar.',
+    QUESTION_NOT_EXPIRED: 'A pergunta ainda está em andamento. Tente avançar novamente.',
     QUESTION_EXPIRED: 'O tempo para responder terminou.',
     NOT_SUBSCRIBED: 'A conexão com a sala não está ativa. Entre novamente na sala.',
   };
-  return messages[code] ?? 'O servidor não conseguiu concluir a ação. Tente novamente.';
+  return messages[code] ?? 'Não foi possível concluir esta ação. Tente novamente.';
 }
 
 function assertNever(value: never): never {

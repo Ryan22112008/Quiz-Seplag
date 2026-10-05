@@ -1,7 +1,7 @@
 import type { GameState, RankingEntry } from './game';
 import type { Room, RoomPlayer } from './room';
 
-/** Pin identifies a room only within this local prototype. A backend must issue a separate room/session id. */
+/** Events received by participants in a room. */
 export type ServerEvent =
   | { type: 'ROOM_CREATED'; payload: { room: Room; hostToken: string } }
   | { type: 'PLAYER_JOINED'; payload: { roomPin: string; player: RoomPlayer } }
@@ -17,7 +17,7 @@ export type ServerEvent =
   | { type: 'GAME_FINISHED'; payload: { roomPin: string; ranking: RankingEntry[] } }
   | { type: 'ROOM_CLOSED'; payload: { roomPin: string } };
 
-/** Commands are outbound requests. The backend remains authoritative for timing, answers and scores. */
+/** Actions participants can send to a room. */
 export type ClientCommand =
   | { type: 'CREATE_ROOM'; payload: { quizId: string } }
   | { type: 'JOIN_ROOM'; payload: { roomPin: string; playerName: string } }
@@ -32,5 +32,3 @@ export type ClientCommand =
   | { type: 'CLOSE_ROOM'; payload: { roomPin: string } };
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'syncing' | 'synced' | 'error';
-
-/** Tokens prove a room-local role only. They are bearer capabilities and are not account authentication. */

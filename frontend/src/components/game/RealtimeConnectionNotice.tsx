@@ -6,11 +6,11 @@ export function RealtimeConnectionNotice() {
   if (state === 'synced') return null;
   const copy: Record<Exclude<typeof state, 'synced'>, { title: string; message: string }> = {
     disconnected: { title: 'Conexão interrompida', message: 'Tentaremos restabelecer a conexão com a sala.' },
-    connecting: { title: 'Conectando', message: 'Estabelecendo conexão com o servidor.' },
+    connecting: { title: 'Conectando à sala', message: 'Preparando sua entrada na partida.' },
     connected: { title: 'Sincronizando', message: 'Recebendo o estado atual da sala.' },
-    reconnecting: { title: 'Reconectando', message: 'A sala continua sob controle do servidor. Aguarde a sincronização.' },
-    syncing: { title: 'Sincronizando', message: 'Atualizando sala, partida, questão e ranking.' },
-    error: { title: 'Conexão indisponível', message: 'Não foi possível conectar ao servidor realtime.' },
+    reconnecting: { title: 'Restabelecendo conexão', message: 'Aguarde enquanto voltamos à sala.' },
+    syncing: { title: 'Atualizando partida', message: 'Carregando as informações mais recentes.' },
+    error: { title: 'Sem conexão', message: 'Não foi possível conectar à sala. Confira sua internet e tente novamente.' },
   };
   return <Alert variant="warning" title={copy[state].title}>{copy[state].message}</Alert>;
 }

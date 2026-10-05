@@ -189,8 +189,8 @@ export class RealtimeHub {
         this.requireHost(socket, command.payload.roomPin);
         const current = await this.services.gameService.getGame(command.payload.roomPin);
         if (!current.currentQuestion) this.fail('QUESTION_NOT_STARTED', 'Não há uma pergunta ativa.');
-        const next = await this.services.gameService.nextQuestion(current.id);
-        this.announceQuestionEnded(current.roomPin, current.currentQuestion.questionId);
+        const next = await this.services.gameService.nextQuestion(current.id, { skipCurrentQuestion: true });
+        this.announceQuestionEnded(current.roomPin, current.currentQuestion.questionId, false);
         if (next.status === 'FINISHED') {
           const ranking = await this.services.gameService.getRanking(next.roomPin);
           this.broadcast(next.roomPin, { type: 'GAME_FINISHED', payload: { roomPin: next.roomPin, ranking } });
@@ -240,14 +240,14 @@ export class RealtimeHub {
     this.scheduleQuestionEnd(game.roomPin, question.questionId, game.id, question.questionEndsAt);
   }
 
-  private announceQuestionEnded(roomPin: string, questionId: string): void {
+  private announceQuestionEnded(roomPin: string, questionId: string, timedOut = true): void {
     const key = `${roomPin}:${questionId}`;
     if (this.endedQuestions.has(key)) return;
     const timer = this.questionTimers.get(key);
     if (timer) clearTimeout(timer);
     this.questionTimers.delete(key);
     this.endedQuestions.add(key);
-    this.broadcast(roomPin, { type: 'QUESTION_ENDED', payload: { roomPin, timedOut: true } });
+    this.broadcast(roomPin, { type: 'QUESTION_ENDED', payload: { roomPin, timedOut } });
   }
 
   private scheduleQuestionEnd(roomPin: string, questionId: string, gameId: string, questionEndsAt: string): void {

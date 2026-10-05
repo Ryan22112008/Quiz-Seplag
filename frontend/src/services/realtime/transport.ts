@@ -28,7 +28,7 @@ export class WebSocketRealtimeTransport implements RealtimeTransport {
       const socket = new WebSocket(WS_BASE_URL);
       this.socket = socket;
       let opened = false;
-      const timeout = window.setTimeout(() => { socket.close(); reject(new Error('Tempo esgotado ao conectar ao servidor realtime.')); }, 8000);
+      const timeout = window.setTimeout(() => { socket.close(); reject(new Error('A conexão demorou para responder. Tente novamente.')); }, 8000);
       socket.onopen = () => { opened = true; window.clearTimeout(timeout); useRealtimeStore.getState().setConnectionState('connected'); resolve(); };
       socket.onmessage = (message) => {
         try {
@@ -40,7 +40,7 @@ export class WebSocketRealtimeTransport implements RealtimeTransport {
           for (const handler of this.handlers) handler({ type: 'REALTIME_ERROR', payload: { code: 'INVALID_SERVER_MESSAGE', message: reason } });
         }
       };
-      socket.onerror = () => { useRealtimeStore.getState().setConnectionState('error'); if (!opened) { window.clearTimeout(timeout); reject(new Error('Falha ao conectar ao servidor realtime.')); } };
+      socket.onerror = () => { useRealtimeStore.getState().setConnectionState('error'); if (!opened) { window.clearTimeout(timeout); reject(new Error('Não foi possível conectar à sala. Confira sua internet e tente novamente.')); } };
       socket.onclose = () => {
         window.clearTimeout(timeout);
         if (!opened) reject(new Error('A conexão realtime foi encerrada antes de conectar.'));

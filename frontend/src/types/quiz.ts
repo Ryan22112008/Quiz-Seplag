@@ -1,7 +1,4 @@
-/**
- * Quiz domain types for frontend state management.
- * Designed for future backend integration.
- */
+/** Quiz and question domain types. */
 
 export interface Quiz {
   id: string;

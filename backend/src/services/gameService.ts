@@ -162,12 +162,14 @@ export class GameService {
     return ranking.map((entry, index) => ({ position: index + 1, ...entry }));
   }
 
-  async nextQuestion(gameId: string): Promise<PublicGameState> {
+  async nextQuestion(gameId: string, options: { skipCurrentQuestion?: boolean } = {}): Promise<PublicGameState> {
     const game = await this.requireGame(gameId);
     if (game.status !== 'IN_PROGRESS') throw new DomainError('GAME_NOT_IN_PROGRESS', 409, 'A partida não está em andamento.');
     if (!game.currentQuestionId || !game.questionEndsAt) throw new DomainError('QUESTION_NOT_STARTED', 409, 'Não há pergunta ativa.');
     const nowMs = this.nowMs();
-    if (nowMs < Date.parse(game.questionEndsAt)) throw new DomainError('QUESTION_NOT_EXPIRED', 409, 'O tempo da pergunta ainda não terminou.');
+    if (!options.skipCurrentQuestion && nowMs < Date.parse(game.questionEndsAt)) {
+      throw new DomainError('QUESTION_NOT_EXPIRED', 409, 'O tempo da pergunta ainda não terminou.');
+    }
     const quiz = await this.quizService.getQuizById(game.quizId);
     if (game.currentQuestionIndex + 1 >= quiz.questions.length) {
       const finished = await this.repository.finishAfterQuestion(game.id, game.currentQuestionIndex, game.currentQuestionId, new Date(nowMs).toISOString());

@@ -12,7 +12,7 @@ export interface ApiRankingEntry { position: number; playerId: string; playerNam
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try { response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers } }); }
-  catch { throw new Error('Não foi possível conectar ao servidor. Verifique se o backend está em execução.'); }
+  catch { throw new Error('Não foi possível conectar. Confira sua internet e tente novamente.'); }
   if (!response.ok) {
     const data = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
     throw new Error(data?.error?.message ?? 'Não foi possível concluir a solicitação.');
