@@ -3,7 +3,8 @@ import { createServer } from 'node:http';
 import { app } from '../app.js';
 import { loadConfig } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
-import { gameService, roomService } from '../routes/index.js';
+import { authService, gameService, quizService, roomService } from '../routes/index.js';
+import { readSessionCookie } from '../auth/middleware.js';
 import { RealtimeHub } from '../realtime/realtimeHub.js';
 
 const { port, frontendOrigins, nodeEnv } = loadConfig();
@@ -11,7 +12,7 @@ async function start(): Promise<void> {
   await prisma.$connect();
   console.info(`Conexão com o banco estabelecida (${nodeEnv}).`);
   const server = createServer(app);
-  const realtimeHub = new RealtimeHub({ roomService, gameService });
+  const realtimeHub = new RealtimeHub({ roomService, gameService, quizService }, { authenticateRequest: async (request) => (await authService.getSession(readSessionCookie(request.headers.cookie)))?.user.id });
   realtimeHub.attach(server, '/realtime', frontendOrigins);
   server.listen(port, '0.0.0.0', () => {
     console.info(`Quiz SEPLAG backend ativo na porta ${port}.`);

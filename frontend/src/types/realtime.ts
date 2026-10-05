@@ -8,11 +8,12 @@ export type ServerEvent =
   | { type: 'PLAYER_LEFT'; payload: { roomPin: string; playerId: string } }
   | { type: 'GAME_STARTED'; payload: { quizId: string; roomPin: string; totalQuestions: number } }
   | { type: 'ROOM_SUBSCRIBED'; payload: { roomPin: string; role: 'host' | 'player'; playerToken?: string } }
-  | { type: 'ROOM_SYNCED'; payload: { room: Room; game: { id: string; roomId: string; roomPin: string; quizId: string; status: 'IN_PROGRESS' | 'FINISHED'; currentQuestionIndex: number; totalQuestions: number; currentQuestion: GameState['currentQuestion']; questionStartedAt: string | null; questionEndsAt: string | null } | null; ranking: RankingEntry[]; hasAnsweredCurrentQuestion: boolean; questionEnded: boolean } }
+  | { type: 'ROOM_SYNCED'; payload: { room: Room; game: { id: string; roomId: string; roomPin: string; quizId: string; status: 'IN_PROGRESS' | 'FINISHED'; phase: 'WAITING' | 'QUESTION_ACTIVE' | 'QUESTION_RESULTS' | 'FINISHED'; currentQuestionIndex: number; totalQuestions: number; currentQuestion: GameState['currentQuestion']; questionStartedAt: string | null; questionEndsAt: string | null; resultsStartedAt: string | null; resultsEndsAt: string | null } | null; ranking: RankingEntry[]; hasAnsweredCurrentQuestion: boolean; questionEnded: boolean } }
   | { type: 'REALTIME_ERROR'; payload: { code: string; message: string } }
   | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number; gameId: string; question: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionRevealAt: string; questionStartedAt: string; questionEndsAt: string }; questionStartedAt: string; questionEndsAt: string } }
   | { type: 'ANSWER_SUBMITTED'; payload: { roomPin: string; playerId: string } }
   | { type: 'QUESTION_ENDED'; payload: { roomPin: string; timedOut: boolean } }
+  | { type: 'QUESTION_RESULTS'; payload: { roomPin: string; questionId: string; ranking: RankingEntry[]; resultsStartedAt: string; resultsEndsAt: string } }
   | { type: 'RANKING_UPDATED'; payload: { roomPin: string; ranking: RankingEntry[] } }
   | { type: 'GAME_FINISHED'; payload: { roomPin: string; ranking: RankingEntry[] } }
   | { type: 'ROOM_CLOSED'; payload: { roomPin: string } };

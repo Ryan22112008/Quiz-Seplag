@@ -24,7 +24,8 @@ export function handleServerEvent(event: ServerEvent): void {
       else game.syncGame({
         roomPin: snapshot.room.pin, gameId: snapshot.game.id, quizId: snapshot.game.quizId,
         currentQuestionIndex: snapshot.game.currentQuestionIndex, totalQuestions: snapshot.game.totalQuestions,
-        gameStatus: snapshot.game.status, question: snapshot.game.currentQuestion,
+        gameStatus: snapshot.game.status, phase: snapshot.game.phase, resultsStartedAt: snapshot.game.resultsStartedAt,
+        resultsEndsAt: snapshot.game.resultsEndsAt, question: snapshot.game.currentQuestion,
         ranking: snapshot.ranking, hasAnswered: snapshot.hasAnsweredCurrentQuestion, questionEnded: snapshot.questionEnded,
       });
       if (snapshot.game?.status === 'FINISHED') {
@@ -63,6 +64,7 @@ export function handleServerEvent(event: ServerEvent): void {
     }
     case 'QUESTION_ENDED': game.lockQuestion(event.payload.roomPin, event.payload.timedOut); break;
     case 'RANKING_UPDATED': game.setRanking(event.payload.roomPin, event.payload.ranking); break;
+    case 'QUESTION_RESULTS': game.setQuestionResults(event.payload.roomPin, event.payload.ranking, event.payload.resultsStartedAt, event.payload.resultsEndsAt); break;
     case 'GAME_FINISHED':
       game.setRanking(event.payload.roomPin, event.payload.ranking);
       {
@@ -70,12 +72,12 @@ export function handleServerEvent(event: ServerEvent): void {
         const own = event.payload.ranking.find((entry) => entry.playerId === identity.playerId);
         if (own) game.setFinalResult(event.payload.roomPin, { score: own.score, position: own.position, totalPlayers: event.payload.ranking.length });
       }
-      game.finishGame(event.payload.roomPin);
+      game.finishGame(event.payload.roomPin, 'animate');
       rooms.setRoomStatus(event.payload.roomPin, 'finished');
       break;
     case 'ROOM_CLOSED':
       rooms.closeRoom(event.payload.roomPin);
-      game.finishGame(event.payload.roomPin);
+      game.finishGame(event.payload.roomPin, 'stable');
       if (usePlayerStore.getState().roomPin === event.payload.roomPin) usePlayerStore.getState().clearPlayer();
       endRealtimeSession();
       break;

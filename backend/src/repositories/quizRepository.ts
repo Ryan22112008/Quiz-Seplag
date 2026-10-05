@@ -6,6 +6,8 @@ export interface QuizRepository {
   create(quiz: Quiz): Promise<Quiz>;
   findById(id: string): Promise<Quiz | undefined>;
   findAll(): Promise<Quiz[]>;
+  findAllByOwner?(ownerId: string): Promise<Quiz[]>;
+  owns?(id: string, ownerId: string): Promise<boolean>;
   update(quiz: Quiz): Promise<Quiz>;
   delete(id: string): Promise<boolean>;
 }
@@ -17,6 +19,7 @@ function copy(quiz: Quiz): Quiz {
 function mapQuiz(row: Prisma.QuizGetPayload<{ include: { questions: { include: { options: true } } } }>): Quiz {
   return {
     id: row.id, title: row.title, category: row.category,
+    ...(row.ownerId ? { ownerId: row.ownerId } : {}),
     ...(row.description === null ? {} : { description: row.description }),
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
     questions: row.questions.sort((a, b) => a.position - b.position).map((q): Question => ({
@@ -33,7 +36,7 @@ export class PrismaQuizRepository implements QuizRepository {
   async create(quiz: Quiz): Promise<Quiz> {
     try {
       const row = await this.client.quiz.create({ data: {
-        id: quiz.id, title: quiz.title, description: quiz.description ?? null, category: quiz.category,
+        id: quiz.id, ownerId: quiz.ownerId ?? null, title: quiz.title, description: quiz.description ?? null, category: quiz.category,
         createdAt: new Date(quiz.createdAt), updatedAt: new Date(quiz.updatedAt),
         questions: { create: quiz.questions.map((q, position) => ({
           id: q.id, question: q.question, imageUrl: q.imageUrl ?? null, correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, revealTime: q.revealTime ?? 0, points: q.points, position,
@@ -56,6 +59,15 @@ export class PrismaQuizRepository implements QuizRepository {
       const rows = await this.client.quiz.findMany({ include: nestedQuiz, orderBy: { createdAt: 'desc' } });
       return rows.map(mapQuiz);
     } catch (error) { throw mapQuizStoreError(error); }
+  }
+
+  async findAllByOwner(ownerId: string): Promise<Quiz[]> {
+    const rows = await this.client.quiz.findMany({ where: { ownerId }, include: nestedQuiz, orderBy: { createdAt: 'desc' } });
+    return rows.map(mapQuiz);
+  }
+
+  async owns(id: string, ownerId: string): Promise<boolean> {
+    return (await this.client.quiz.count({ where: { id, ownerId } })) > 0;
   }
 
   async update(quiz: Quiz): Promise<Quiz> {
@@ -89,6 +101,8 @@ export class InMemoryQuizRepository implements QuizRepository {
   }
   async findById(id: string): Promise<Quiz | undefined> { const quiz = this.quizzes.get(id); return quiz ? copy(quiz) : undefined; }
   async findAll(): Promise<Quiz[]> { return [...this.quizzes.values()].map(copy); }
+  async findAllByOwner(ownerId: string): Promise<Quiz[]> { return [...this.quizzes.values()].filter((quiz) => quiz.ownerId === ownerId).map(copy); }
+  async owns(id: string, ownerId: string): Promise<boolean> { return this.quizzes.get(id)?.ownerId === ownerId; }
   async update(quiz: Quiz): Promise<Quiz> {
     if (!this.quizzes.has(quiz.id)) throw new DomainError('QUIZ_NOT_FOUND', 404, 'Quiz não encontrado.');
     const saved = copy(quiz); this.quizzes.set(saved.id, saved); return copy(saved);

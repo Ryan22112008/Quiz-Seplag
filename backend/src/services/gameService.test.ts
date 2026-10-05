@@ -129,8 +129,8 @@ describe('GameService', () => {
     const { gameRepository } = await createSetup();
     await expectDomainError(() => gameRepository.update({
       id: 'missing', roomId: 'room', roomPin: '111111', quizId: 'quiz', status: 'FINISHED',
-      currentQuestionIndex: 0, totalQuestions: 0, currentQuestionId: null, questionStartedAt: null,
-      questionEndsAt: null, startedAt: '', finishedAt: '', createdAt: '',
+      currentQuestionIndex: 0, totalQuestions: 0, currentQuestionId: null, phase: 'WAITING', questionStartedAt: null,
+      questionEndsAt: null, resultsStartedAt: null, resultsEndsAt: null, startedAt: '', finishedAt: '', createdAt: '',
     }), 'GAME_NOT_FOUND', 404);
   });
 
@@ -358,6 +358,86 @@ describe('GameService', () => {
     ]);
     assert.ok(ranking.some((entry) => entry.playerId === ana.id));
     assert.ok(ranking.some((entry) => entry.playerId === caio.id));
+  });
+
+  it('entra em resultados quando todos respondem, mantém zero pontos e avança após o prazo absoluto', async () => {
+    const clock = { value: Date.parse('2026-10-02T12:00:00.000Z') };
+    const { room, quiz, gameService, roomService } = await createSetup(false, 2, clock, 2);
+    const { player: fast } = await roomService.joinRoom(room.pin, 'Ana');
+    const { player: wrong } = await roomService.joinRoom(room.pin, 'Bia');
+    const game = await gameService.startGame(room.pin);
+    const question = (await gameService.startQuestion(game.id)).currentQuestion!;
+    await expectDomainError(() => gameService.submitAnswer(game.id, { playerId: fast.id, questionId: question.questionId, optionId: question.options[0]!.id }), 'QUESTION_NOT_REVEALED', 409);
+    clock.value = Date.parse(question.questionRevealAt);
+    await gameService.submitAnswer(game.id, { playerId: fast.id, questionId: question.questionId, optionId: quiz.questions[0]!.correctOptionId });
+    assert.equal(await gameService.advanceIfAllAnswered(room.pin, question.questionId), null);
+    await gameService.submitAnswer(game.id, { playerId: wrong.id, questionId: question.questionId, optionId: question.options[0]!.id });
+    const result = await gameService.advanceIfAllAnswered(room.pin, question.questionId);
+    assert.equal(result?.started, true);
+    assert.equal(result?.state.phase, 'QUESTION_RESULTS');
+    assert.equal(result?.state.resultsStartedAt, question.questionRevealAt);
+    assert.equal(result?.state.resultsEndsAt, '2026-10-02T12:00:05.000Z');
+    const ranking = await gameService.getRanking(room.pin);
+    assert.deepEqual(ranking.map(({ position, playerName, score }) => [position, playerName, score]), [[1, 'Ana', 900], [2, 'Bia', 0]]);
+    await expectDomainError(() => gameService.submitAnswer(game.id, { playerId: fast.id, questionId: question.questionId, optionId: question.options[0]!.id }), 'QUESTION_NOT_ACTIVE', 409);
+    assert.equal(await gameService.advanceAfterResults(game.id), null);
+    clock.value += 3_000;
+    const [advanced, duplicate] = await Promise.all([gameService.advanceAfterResults(game.id), gameService.advanceAfterResults(game.id)]);
+    assert.equal(advanced?.currentQuestionIndex, 1);
+    assert.equal(advanced?.phase, 'QUESTION_ACTIVE');
+    assert.equal(duplicate, null);
+  });
+
+  it('mantém a última pergunta em resultados e finaliza somente após os três segundos', async () => {
+    const clock = { value: Date.parse('2026-10-02T12:00:00.000Z') };
+    const { room, quiz, gameService, roomService } = await createSetup(false, 1, clock);
+    const { player } = await roomService.joinRoom(room.pin, 'Finalista');
+    const game = await gameService.startGame(room.pin);
+    const question = (await gameService.startQuestion(game.id)).currentQuestion!;
+    await gameService.submitAnswer(game.id, { playerId: player.id, questionId: question.questionId, optionId: quiz.questions[0]!.correctOptionId });
+    const result = await gameService.advanceIfAllAnswered(room.pin, question.questionId);
+    assert.equal(result?.state.status, 'IN_PROGRESS');
+    assert.equal(result?.state.phase, 'QUESTION_RESULTS');
+    assert.equal(result?.state.resultsEndsAt, '2026-10-02T12:00:03.000Z');
+    clock.value += 3_000;
+    const finished = await gameService.advanceAfterResults(game.id);
+    assert.equal(finished?.status, 'FINISHED');
+    assert.equal(finished?.phase, 'FINISHED');
+    assert.equal((await roomService.getRoomByPin(room.pin)).status, 'FINISHED');
+  });
+
+  it('serializa respostas simultâneas de três jogadores em uma única fase de resultados', async () => {
+    const clock = { value: Date.parse('2026-10-02T12:00:00.000Z') };
+    const { room, quiz, gameService, roomService } = await createSetup(false, 1, clock);
+    const { player: ana } = await roomService.joinRoom(room.pin, 'Ana');
+    const { player: bia } = await roomService.joinRoom(room.pin, 'Bia');
+    const { player: caio } = await roomService.joinRoom(room.pin, 'Caio');
+    const game = await gameService.startGame(room.pin);
+    const question = (await gameService.startQuestion(game.id)).currentQuestion!;
+    await Promise.all([
+      gameService.submitAnswer(game.id, { playerId: ana.id, questionId: question.questionId, optionId: quiz.questions[0]!.correctOptionId }),
+      gameService.submitAnswer(game.id, { playerId: bia.id, questionId: question.questionId, optionId: quiz.questions[0]!.correctOptionId }),
+      gameService.submitAnswer(game.id, { playerId: caio.id, questionId: question.questionId, optionId: question.options[0]!.id }),
+    ]);
+    const transitions = await Promise.all(Array.from({ length: 3 }, () => gameService.advanceIfAllAnswered(room.pin, question.questionId)));
+    assert.equal(transitions.filter((transition) => transition?.started).length, 1);
+    assert.equal(transitions.filter(Boolean).length, 1);
+    assert.deepEqual((await gameService.getRanking(room.pin)).map(({ position, playerName, score }) => [position, playerName, score]), [
+      [1, 'Ana', 1000], [2, 'Bia', 1000], [3, 'Caio', 0],
+    ]);
+  });
+
+  it('cria resultados por expiração sem exigir que todos tenham respondido', async () => {
+    const clock = { value: Date.parse('2026-10-02T12:00:00.000Z') };
+    const { room, gameService, roomService } = await createSetup(false, 1, clock);
+    await roomService.joinRoom(room.pin, 'Sem resposta');
+    const game = await gameService.startGame(room.pin);
+    const question = (await gameService.startQuestion(game.id)).currentQuestion!;
+    clock.value = Date.parse(question.questionEndsAt);
+    const results = await gameService.beginQuestionResults(game.id, question.questionId);
+    assert.equal(results.started, true);
+    assert.equal(results.state.phase, 'QUESTION_RESULTS');
+    assert.equal((await gameService.getRanking(room.pin))[0]?.score, 0);
   });
 
   it('acumula a pontuação do mesmo jogador entre perguntas e reflete a soma no ranking', async () => {

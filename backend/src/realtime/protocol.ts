@@ -23,6 +23,7 @@ export type ServerEvent =
   | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number; gameId: string; question: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: ReadonlyArray<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionRevealAt: string; questionStartedAt: string; questionEndsAt: string }; questionStartedAt: string; questionEndsAt: string } }
   | { type: 'ANSWER_SUBMITTED'; payload: { roomPin: string; playerId: string } }
   | { type: 'QUESTION_ENDED'; payload: { roomPin: string; timedOut: boolean } }
+  | { type: 'QUESTION_RESULTS'; payload: { roomPin: string; questionId: string; ranking: PublicRankingEntry[]; resultsStartedAt: string; resultsEndsAt: string } }
   | { type: 'RANKING_UPDATED'; payload: { roomPin: string; ranking: Array<{ position: number; playerId: string; playerName: string; score: number; correctAnswers: number }> } }
   | { type: 'GAME_FINISHED'; payload: { roomPin: string; ranking: Array<{ position: number; playerId: string; playerName: string; score: number; correctAnswers: number }> } }
   | { type: 'ROOM_CLOSED'; payload: { roomPin: string } }

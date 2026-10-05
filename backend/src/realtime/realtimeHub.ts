@@ -1,4 +1,5 @@
 import type { Server } from 'node:http';
+import type { IncomingMessage } from 'node:http';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import { DomainError } from '../domain/errors.js';
 import type { GameService } from '../services/gameService.js';
@@ -6,11 +7,13 @@ import type { RoomService } from '../services/roomService.js';
 import { ProtocolError, parseCommand, type ClientCommand, type ServerEvent } from './protocol.js';
 
 type Role = 'host' | 'player';
-interface ConnectionContext { roomPin?: string; playerId?: string; role?: Role }
+interface ConnectionContext { roomPin?: string; playerId?: string; role?: Role; userId?: string }
 interface RealtimeServices {
   roomService: Pick<RoomService, 'createRoomWithHostToken' | 'getRoomByPin' | 'joinRoom' | 'leaveRoom' | 'closeRoom' | 'isValidHostToken' | 'isValidPlayerToken'>;
-  gameService: Pick<GameService, 'startGame' | 'getGame' | 'startQuestion' | 'isQuestionExpired' | 'submitAnswer' | 'getRanking' | 'nextQuestion' | 'finishGame' | 'hasAnswered'>;
+  gameService: Pick<GameService, 'startGame' | 'getGame' | 'startQuestion' | 'isQuestionExpired' | 'submitAnswer' | 'getRanking' | 'beginQuestionResults' | 'advanceAfterResults' | 'finishGame' | 'hasAnswered' | 'advanceIfAllAnswered'>;
+  quizService?: { ownsQuiz(id: string, ownerId: string): Promise<boolean>; getQuizById(id: string): Promise<{ ownerId?: string }> };
 }
+interface RealtimeHubDependencies { nowMs?: () => number; authenticateRequest?: (request: IncomingMessage) => Promise<string | undefined> }
 
 /** Owns WebSocket membership and routes commands through the existing domain services. */
 export class RealtimeHub {
@@ -19,19 +22,33 @@ export class RealtimeHub {
   private readonly roomVersions = new Map<string, number>();
   private readonly endedQuestions = new Set<string>();
   private readonly questionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly resultsTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private server: WebSocketServer | undefined;
   private shuttingDown = false;
 
-  constructor(private readonly services: RealtimeServices) {}
+  private readonly nowMs: () => number;
+  private readonly authenticateRequest: ((request: IncomingMessage) => Promise<string | undefined>) | undefined;
+  private readonly usersByRequest = new WeakMap<IncomingMessage, string | undefined>();
+
+  constructor(private readonly services: RealtimeServices, dependencies: RealtimeHubDependencies = {}) {
+    this.nowMs = dependencies.nowMs ?? Date.now;
+    this.authenticateRequest = dependencies.authenticateRequest;
+  }
 
   attach(httpServer: Server, path = '/realtime', allowedOrigins: readonly string[] = []): WebSocketServer {
     if (this.server) throw new Error('RealtimeHub já está conectado a um servidor HTTP.');
     const server = new WebSocketServer({
       server: httpServer, path, maxPayload: 64 * 1024,
-      verifyClient: ({ origin }, callback) => callback(!origin || allowedOrigins.includes(origin), origin ? 403 : 401, 'Origem não permitida.'),
+      verifyClient: (info, callback) => {
+        void (async () => {
+          if (info.origin && !allowedOrigins.includes(info.origin)) { callback(false, 403, 'Origem não permitida.'); return; }
+          try { this.usersByRequest.set(info.req, await this.authenticateRequest?.(info.req)); callback(true); }
+          catch { callback(false, 401, 'Não foi possível autenticar a conexão.'); }
+        })();
+      },
     });
     this.server = server;
-    server.on('connection', (socket) => this.accept(socket));
+    server.on('connection', (socket, request) => this.accept(socket, this.usersByRequest.get(request)));
     server.on('error', () => { /* Connection errors are reported to their socket; keep the HTTP process alive. */ });
     return server;
   }
@@ -50,14 +67,16 @@ export class RealtimeHub {
     this.roomVersions.clear();
     for (const timer of this.questionTimers.values()) clearTimeout(timer);
     this.questionTimers.clear();
+    for (const timer of this.resultsTimers.values()) clearTimeout(timer);
+    this.resultsTimers.clear();
     const server = this.server;
     this.server = undefined;
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
-  private accept(socket: WebSocket): void {
+  private accept(socket: WebSocket, userId?: string): void {
     if (this.shuttingDown) { socket.close(1001, 'Servidor encerrando'); return; }
-    this.contexts.set(socket, {});
+    this.contexts.set(socket, userId ? { userId } : {});
     socket.on('message', (data) => { void this.processMessage(socket, data); });
     socket.on('close', () => this.detach(socket));
     socket.on('error', () => this.detach(socket));
@@ -75,6 +94,8 @@ export class RealtimeHub {
     switch (command.type) {
       case 'CREATE_ROOM': {
         this.requireUnbound(socket);
+        const context = this.context(socket);
+        if (this.authenticateRequest && (!context.userId || !this.services.quizService || !await this.services.quizService.ownsQuiz(command.payload.quizId, context.userId))) this.fail('FORBIDDEN', 'Somente o proprietário autenticado pode criar uma sala para este quiz.');
         const { room, hostToken } = await this.services.roomService.createRoomWithHostToken(command.payload.quizId);
         this.bind(socket, room.pin, 'host');
         this.send(socket, { type: 'ROOM_CREATED', payload: { room: toClientRoom(room), hostToken } });
@@ -103,6 +124,9 @@ export class RealtimeHub {
         } else if (context.role === 'host' && context.roomPin === room.pin) {
           role = 'host';
         } else if (command.payload.hostToken !== undefined && this.services.roomService.isValidHostToken(room.id, command.payload.hostToken)) {
+          if (this.authenticateRequest && !context.userId) this.fail('UNAUTHENTICATED', 'Entre com sua conta Google para conduzir esta partida.');
+          const quiz = await this.services.quizService?.getQuizById(room.quizId);
+          if (context.userId && quiz?.ownerId && quiz.ownerId !== context.userId) this.fail('FORBIDDEN', 'Somente o proprietário do quiz pode conduzir esta partida.');
           role = 'host';
         } else {
           this.fail('FORBIDDEN', 'É necessário o contexto de host ou de jogador para entrar na sala.');
@@ -142,6 +166,9 @@ export class RealtimeHub {
           this.send(socket, { type: 'ROOM_SYNCED', payload: {
             room: toClientRoom(currentRoom), game, ranking, hasAnsweredCurrentQuestion, questionEnded,
           } });
+          if (game?.phase === 'QUESTION_RESULTS' && game.currentQuestion && game.resultsEndsAt) {
+            this.scheduleResultsEnd(game.roomPin, game.id, game.currentQuestion.questionId, game.resultsEndsAt);
+          }
           synced = true;
         }
         if (syncedRoom.status === 'FINISHED' && syncedGame?.status !== 'FINISHED') {
@@ -161,6 +188,7 @@ export class RealtimeHub {
         }
         await this.services.roomService.leaveRoom(context.roomPin!, context.playerId);
         this.broadcast(context.roomPin!, { type: 'PLAYER_LEFT', payload: { roomPin: context.roomPin!, playerId: context.playerId } });
+        await this.advanceIfAllAnswered(context.roomPin!);
         this.unbind(socket);
         return;
       }
@@ -182,19 +210,14 @@ export class RealtimeHub {
         const game = await this.services.gameService.getGame(command.payload.roomPin);
         if (game.currentQuestion?.questionId !== command.payload.questionId) this.fail('QUESTION_NOT_CURRENT', 'A pergunta informada não está ativa.');
         if (!(await this.services.gameService.isQuestionExpired(game.id))) this.fail('QUESTION_NOT_EXPIRED', 'O tempo da pergunta ainda não terminou.');
-        this.announceQuestionEnded(game.roomPin, command.payload.questionId);
+        await this.startResults(game.roomPin, game.id, command.payload.questionId, true);
         return;
       }
       case 'NEXT_QUESTION': {
         this.requireHost(socket, command.payload.roomPin);
         const current = await this.services.gameService.getGame(command.payload.roomPin);
         if (!current.currentQuestion) this.fail('QUESTION_NOT_STARTED', 'Não há uma pergunta ativa.');
-        const next = await this.services.gameService.nextQuestion(current.id, { skipCurrentQuestion: true });
-        this.announceQuestionEnded(current.roomPin, current.currentQuestion.questionId, false);
-        if (next.status === 'FINISHED') {
-          const ranking = await this.services.gameService.getRanking(next.roomPin);
-          this.broadcast(next.roomPin, { type: 'GAME_FINISHED', payload: { roomPin: next.roomPin, ranking } });
-        } else this.broadcastQuestion(next);
+        await this.startResults(current.roomPin, current.id, current.currentQuestion.questionId, false);
         return;
       }
       case 'SUBMIT_ANSWER': {
@@ -207,12 +230,14 @@ export class RealtimeHub {
         this.broadcast(command.payload.roomPin, { type: 'ANSWER_SUBMITTED', payload: { roomPin: command.payload.roomPin, playerId: context.playerId! } });
         const ranking = await this.services.gameService.getRanking(command.payload.roomPin);
         this.broadcast(command.payload.roomPin, { type: 'RANKING_UPDATED', payload: { roomPin: command.payload.roomPin, ranking } });
+        await this.advanceIfAllAnswered(command.payload.roomPin, command.payload.questionId);
         return;
       }
       case 'FINISH_GAME': {
         this.requireHost(socket, command.payload.roomPin);
         const game = await this.services.gameService.finishGame(command.payload.roomPin);
         this.clearQuestionTimer(game.roomPin);
+        this.clearResultsTimer(game.roomPin);
         const ranking = await this.services.gameService.getRanking(game.roomPin);
         this.broadcast(game.roomPin, { type: 'GAME_FINISHED', payload: { roomPin: game.roomPin, ranking } });
         return;
@@ -221,6 +246,7 @@ export class RealtimeHub {
         this.requireHost(socket, command.payload.roomPin);
         await this.services.roomService.closeRoom((await this.services.roomService.getRoomByPin(command.payload.roomPin)).id);
         this.clearQuestionTimer(command.payload.roomPin);
+        this.clearResultsTimer(command.payload.roomPin);
         this.broadcast(command.payload.roomPin, { type: 'ROOM_CLOSED', payload: { roomPin: command.payload.roomPin } });
         this.unbindRoom(command.payload.roomPin);
         return;
@@ -250,17 +276,67 @@ export class RealtimeHub {
     this.broadcast(roomPin, { type: 'QUESTION_ENDED', payload: { roomPin, timedOut } });
   }
 
+  private async advanceIfAllAnswered(roomPin: string, expectedQuestionId?: string): Promise<void> {
+    let current: Awaited<ReturnType<GameService['getGame']>>;
+    try { current = await this.services.gameService.getGame(roomPin); }
+    catch (error) {
+      if (error instanceof DomainError && error.code === 'GAME_NOT_FOUND') return;
+      throw error;
+    }
+    const question = current.currentQuestion;
+    if (!question || (expectedQuestionId && question.questionId !== expectedQuestionId)) return;
+    const result = await this.services.gameService.advanceIfAllAnswered(roomPin, question.questionId);
+    if (!result?.started) return;
+    await this.publishResults(roomPin, question.questionId, result.state, false);
+  }
+
+  private async startResults(roomPin: string, gameId: string, questionId: string, timedOut: boolean): Promise<void> {
+    try {
+      const result = await this.services.gameService.beginQuestionResults(gameId, questionId);
+      if (!result.started) return;
+      await this.publishResults(roomPin, questionId, result.state, timedOut);
+    } catch (error) {
+      if (error instanceof DomainError && error.code === 'QUESTION_STATE_CHANGED') return;
+      throw error;
+    }
+  }
+
+  private async publishResults(roomPin: string, questionId: string, state: Awaited<ReturnType<GameService['getGame']>>, timedOut: boolean): Promise<void> {
+    if (!state.resultsStartedAt || !state.resultsEndsAt) return;
+    this.announceQuestionEnded(roomPin, questionId, timedOut);
+    const ranking = await this.services.gameService.getRanking(roomPin);
+    this.broadcast(roomPin, { type: 'QUESTION_RESULTS', payload: { roomPin, questionId, ranking, resultsStartedAt: state.resultsStartedAt, resultsEndsAt: state.resultsEndsAt } });
+    this.scheduleResultsEnd(roomPin, state.id, questionId, state.resultsEndsAt);
+  }
+
+  private scheduleResultsEnd(roomPin: string, gameId: string, questionId: string, resultsEndsAt: string): void {
+    const key = `${roomPin}:${questionId}`;
+    const previous = this.resultsTimers.get(key);
+    if (previous) clearTimeout(previous);
+    const timer = setTimeout(() => {
+      this.resultsTimers.delete(key);
+      void this.services.gameService.advanceAfterResults(gameId).then(async (next) => {
+        if (!next) return;
+        if (next.status === 'FINISHED') {
+          const ranking = await this.services.gameService.getRanking(roomPin);
+          this.broadcast(roomPin, { type: 'GAME_FINISHED', payload: { roomPin, ranking } });
+        } else this.broadcastQuestion(next);
+      }).catch(() => { /* Stale result timers cannot advance a changed game. */ });
+    }, Math.max(0, Date.parse(resultsEndsAt) - this.nowMs()));
+    this.resultsTimers.set(key, timer);
+  }
+
   private scheduleQuestionEnd(roomPin: string, questionId: string, gameId: string, questionEndsAt: string): void {
     const key = `${roomPin}:${questionId}`;
     const previous = this.questionTimers.get(key);
     if (previous) clearTimeout(previous);
-    const delay = Math.max(0, Date.parse(questionEndsAt) - Date.now());
+    const delay = Math.max(0, Date.parse(questionEndsAt) - this.nowMs());
     const timer = setTimeout(() => {
       this.questionTimers.delete(key);
       void this.services.gameService.getGame(roomPin)
         .then(async (game) => {
           if (game.currentQuestion?.questionId === questionId && await this.services.gameService.isQuestionExpired(gameId)) {
-            this.announceQuestionEnded(roomPin, questionId);
+            await this.startResults(roomPin, gameId, questionId, true);
           }
         })
         .catch(() => { /* The GameService remains authoritative; stale game timers are ignored. */ });
@@ -273,6 +349,14 @@ export class RealtimeHub {
       if (!key.startsWith(`${roomPin}:`)) continue;
       clearTimeout(timer);
       this.questionTimers.delete(key);
+    }
+  }
+
+  private clearResultsTimer(roomPin: string): void {
+    for (const [key, timer] of this.resultsTimers) {
+      if (!key.startsWith(`${roomPin}:`)) continue;
+      clearTimeout(timer);
+      this.resultsTimers.delete(key);
     }
   }
 
@@ -300,7 +384,8 @@ export class RealtimeHub {
   }
   private bind(socket: WebSocket, roomPin: string, role: Role, playerId?: string): void {
     this.unbind(socket);
-    const context: ConnectionContext = { roomPin, role, ...(playerId ? { playerId } : {}) };
+    const userId = this.contexts.get(socket)?.userId;
+    const context: ConnectionContext = { roomPin, role, ...(playerId ? { playerId } : {}), ...(userId ? { userId } : {}) };
     this.contexts.set(socket, context);
     const group = this.socketsByRoom.get(roomPin) ?? new Set<WebSocket>();
     group.add(socket);
@@ -313,7 +398,7 @@ export class RealtimeHub {
       group?.delete(socket);
       if (group?.size === 0) this.socketsByRoom.delete(context.roomPin);
     }
-    if (this.contexts.has(socket)) this.contexts.set(socket, {});
+    if (this.contexts.has(socket)) this.contexts.set(socket, context?.userId ? { userId: context.userId } : {});
   }
   private unbindRoom(roomPin: string): void {
     for (const socket of this.socketsByRoom.get(roomPin) ?? []) this.unbind(socket);

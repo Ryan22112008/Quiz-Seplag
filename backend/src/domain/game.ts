@@ -1,5 +1,7 @@
 export const GAME_STATUSES = ['IN_PROGRESS', 'FINISHED'] as const;
 export type GameStatus = (typeof GAME_STATUSES)[number];
+export type GamePhase = 'WAITING' | 'QUESTION_ACTIVE' | 'QUESTION_RESULTS' | 'FINISHED';
+export const RESULTS_DURATION_MS = 3_000;
 
 /** Backend-owned execution record. Quiz questions and answers are never embedded in public game state. */
 export interface Game {
@@ -8,11 +10,14 @@ export interface Game {
   roomPin: string;
   quizId: string;
   status: GameStatus;
+  phase: GamePhase;
   currentQuestionIndex: number;
   totalQuestions: number;
   currentQuestionId: string | null;
   questionStartedAt: string | null;
   questionEndsAt: string | null;
+  resultsStartedAt: string | null;
+  resultsEndsAt: string | null;
   startedAt: string;
   finishedAt: string | null;
   createdAt: string;

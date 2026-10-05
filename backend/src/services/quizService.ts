@@ -11,7 +11,7 @@ function text(value: unknown, min: number, max: number): value is string {
 export class QuizService {
   constructor(private readonly repository: QuizRepository, private readonly createId: () => string = randomUUID, private readonly now: () => string = () => new Date().toISOString()) {}
 
-  async createQuiz(input: unknown): Promise<Quiz> {
+  async createQuiz(input: unknown, ownerId?: string): Promise<Quiz> {
     if (!isRecord(input) || !hasOnlyKeys(input, ['id', 'title', 'description', 'category', 'questions']) || !validOptionalId(input.id) || !text(input.title, 3, 100) || !text(input.category, 1, 80) ||
       (input.description !== undefined && !text(input.description, 0, 300)) || !Array.isArray(input.questions) || input.questions.length > 100) {
       throw new DomainError('INVALID_QUIZ', 400, 'Os dados do quiz são inválidos.');
@@ -38,6 +38,7 @@ export class QuizService {
     const timestamp = this.now();
     const quiz: Quiz = {
       id: this.createId(), title: input.title.trim(), category: input.category.trim(), questions,
+      ...(ownerId ? { ownerId } : {}),
       createdAt: timestamp, updatedAt: timestamp,
       ...(typeof input.description === 'string' && input.description.trim() ? { description: input.description.trim() } : {}),
     };
@@ -45,6 +46,8 @@ export class QuizService {
   }
 
   listQuizzes(): Promise<Quiz[]> { return this.repository.findAll(); }
+  listQuizzesByOwner(ownerId: string): Promise<Quiz[]> { return this.repository.findAllByOwner ? this.repository.findAllByOwner(ownerId) : this.repository.findAll(); }
+  ownsQuiz(id: string, ownerId: string): Promise<boolean> { return this.repository.owns ? this.repository.owns(id, ownerId) : this.getQuizById(id).then((quiz) => quiz.ownerId === ownerId); }
   async getQuizById(id: unknown): Promise<Quiz> {
     if (typeof id !== 'string' || !id.trim() || id.length > 128) throw new DomainError('INVALID_QUIZ_ID', 400, 'Informe um identificador de quiz válido.');
     const quiz = await this.repository.findById(id);

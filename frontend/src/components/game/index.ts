@@ -8,5 +8,6 @@ export { GameProgress } from './GameProgress';
 export type { GameProgressProps } from './GameProgress';
 export { RankingList } from './RankingList';
 export type { RankingListProps } from './RankingList';
+export { FinalPodium } from './FinalPodium';
 export { JoinGameForm } from './JoinGameForm';
 export type { JoinGameFormProps } from './JoinGameForm';

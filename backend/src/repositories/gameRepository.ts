@@ -11,6 +11,8 @@ export interface GameRepository {
   startQuestion(id: string, expectedIndex: number, questionId: string, startedAt: string, endsAt: string): Promise<Game>;
   advanceQuestion(id: string, expectedIndex: number, expectedQuestionId: string, questionId: string, startedAt: string, endsAt: string): Promise<Game>;
   finishAfterQuestion(id: string, expectedIndex: number, expectedQuestionId: string, finishedAt: string): Promise<Game>;
+  enterResults(id: string, expectedIndex: number, expectedQuestionId: string, startedAt: string, endsAt: string): Promise<Game>;
+  advanceAfterResults(id: string, expectedIndex: number, expectedQuestionId: string, questionId: string | null, startedAt: string, endsAt: string | null, finishedAt: string | null): Promise<Game>;
   submitAnswer(answer: PlayerAnswer): Promise<{ answer: PlayerAnswer; score: PlayerGameScore }>;
   findAnswer(gameId: string, questionId: string, playerId: string): Promise<PlayerAnswer | undefined>;
   listScores(gameId: string): Promise<PlayerGameScore[]>;
@@ -65,7 +67,7 @@ export class InMemoryGameRepository implements GameRepository {
     const game = this.games.get(id);
     if (!game) throw new DomainError('GAME_NOT_FOUND', 404, 'Partida não encontrada.');
     if (game.status === 'FINISHED') throw new DomainError('GAME_ALREADY_FINISHED', 409, 'Esta partida já foi finalizada.');
-    const finished = { ...game, status: 'FINISHED' as const, finishedAt };
+    const finished = { ...game, status: 'FINISHED' as const, phase: 'FINISHED' as const, finishedAt };
     this.games.set(id, finished);
     return clone(finished);
   }
@@ -76,7 +78,7 @@ export class InMemoryGameRepository implements GameRepository {
     if (game.status !== 'IN_PROGRESS') throw new DomainError('GAME_NOT_IN_PROGRESS', 409, 'A partida não está em andamento.');
     if (game.currentQuestionId !== null) throw new DomainError('QUESTION_ALREADY_ACTIVE', 409, 'Já existe uma pergunta ativa.');
     if (game.currentQuestionIndex !== expectedIndex) throw new DomainError('QUESTION_STATE_CHANGED', 409, 'O estado da pergunta foi alterado.');
-    const updated = { ...game, currentQuestionId: questionId, questionStartedAt: startedAt, questionEndsAt: endsAt };
+    const updated = { ...game, phase: 'QUESTION_ACTIVE' as const, currentQuestionId: questionId, questionStartedAt: startedAt, questionEndsAt: endsAt, resultsStartedAt: null, resultsEndsAt: null };
     this.games.set(id, updated);
     return clone(updated);
   }
@@ -88,7 +90,7 @@ export class InMemoryGameRepository implements GameRepository {
     if (game.currentQuestionIndex !== expectedIndex || game.currentQuestionId !== expectedQuestionId) {
       throw new DomainError('QUESTION_STATE_CHANGED', 409, 'A pergunta atual já foi alterada.');
     }
-    const updated = { ...game, currentQuestionIndex: expectedIndex + 1, currentQuestionId: questionId, questionStartedAt: startedAt, questionEndsAt: endsAt };
+    const updated = { ...game, phase: 'QUESTION_ACTIVE' as const, currentQuestionIndex: expectedIndex + 1, currentQuestionId: questionId, questionStartedAt: startedAt, questionEndsAt: endsAt, resultsStartedAt: null, resultsEndsAt: null };
     this.games.set(id, updated);
     return clone(updated);
   }
@@ -100,7 +102,34 @@ export class InMemoryGameRepository implements GameRepository {
     if (game.currentQuestionIndex !== expectedIndex || game.currentQuestionId !== expectedQuestionId) {
       throw new DomainError('QUESTION_STATE_CHANGED', 409, 'A pergunta atual já foi alterada.');
     }
-    const updated = { ...game, status: 'FINISHED' as const, finishedAt };
+    const updated = { ...game, status: 'FINISHED' as const, phase: 'FINISHED' as const, finishedAt };
+    this.games.set(id, updated);
+    return clone(updated);
+  }
+
+  async enterResults(id: string, expectedIndex: number, expectedQuestionId: string, startedAt: string, endsAt: string): Promise<Game> {
+    const game = this.games.get(id);
+    if (!game) throw new DomainError('GAME_NOT_FOUND', 404, 'Partida não encontrada.');
+    if (game.status !== 'IN_PROGRESS') throw new DomainError('GAME_NOT_IN_PROGRESS', 409, 'A partida não está em andamento.');
+    if (game.phase !== 'QUESTION_ACTIVE' || game.currentQuestionIndex !== expectedIndex || game.currentQuestionId !== expectedQuestionId) {
+      throw new DomainError('QUESTION_STATE_CHANGED', 409, 'A pergunta atual já foi alterada.');
+    }
+    const updated = { ...game, phase: 'QUESTION_RESULTS' as const, resultsStartedAt: startedAt, resultsEndsAt: endsAt };
+    this.games.set(id, updated);
+    return clone(updated);
+  }
+
+  async advanceAfterResults(id: string, expectedIndex: number, expectedQuestionId: string, questionId: string | null, startedAt: string, endsAt: string | null, finishedAt: string | null): Promise<Game> {
+    const game = this.games.get(id);
+    if (!game) throw new DomainError('GAME_NOT_FOUND', 404, 'Partida não encontrada.');
+    if (game.status !== 'IN_PROGRESS') throw new DomainError('GAME_NOT_IN_PROGRESS', 409, 'A partida não está em andamento.');
+    if (game.phase !== 'QUESTION_RESULTS' || game.currentQuestionIndex !== expectedIndex || game.currentQuestionId !== expectedQuestionId) {
+      throw new DomainError('QUESTION_STATE_CHANGED', 409, 'O resultado atual já foi alterado.');
+    }
+    const finished = questionId === null;
+    const updated = finished
+      ? { ...game, status: 'FINISHED' as const, phase: 'FINISHED' as const, finishedAt }
+      : { ...game, phase: 'QUESTION_ACTIVE' as const, currentQuestionIndex: expectedIndex + 1, currentQuestionId: questionId, questionStartedAt: startedAt, questionEndsAt: endsAt, resultsStartedAt: null, resultsEndsAt: null };
     this.games.set(id, updated);
     return clone(updated);
   }

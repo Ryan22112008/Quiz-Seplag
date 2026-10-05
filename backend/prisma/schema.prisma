@@ -14,8 +14,45 @@ model Quiz {
   category    String     @db.VarChar(80)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  ownerId     String?
+  owner       User?      @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   questions   Question[]
   rooms       Room[]
+  @@index([ownerId])
+}
+
+model User {
+  id        String         @id @default(cuid())
+  googleId  String         @unique @db.VarChar(191)
+  email     String         @unique @db.VarChar(191)
+  name      String         @db.VarChar(191)
+  avatarUrl String?        @db.VarChar(500)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  quizzes   Quiz[]
+  sessions  AuthSession[]
+}
+
+model AuthSession {
+  id        String   @id @db.Char(64)
+  userId    String
+  csrfToken String   @db.Char(64)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model OAuthState {
+  id          String   @id @db.Char(64)
+  nonce       String   @db.VarChar(128)
+  codeVerifier String  @db.VarChar(128)
+  returnTo    String   @db.VarChar(500)
+  expiresAt   DateTime
+
+  @@index([expiresAt])
 }
 
 model Question {

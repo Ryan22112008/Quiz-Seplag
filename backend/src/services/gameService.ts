@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { DomainError } from '../domain/errors.js';
-import type { AnswerSubmissionResult, Game, PlayerAnswer, PublicGameState, PublicQuestionState, PublicRankingEntry } from '../domain/game.js';
+import { RESULTS_DURATION_MS, type AnswerSubmissionResult, type Game, type PlayerAnswer, type PublicGameState, type PublicQuestionState, type PublicRankingEntry } from '../domain/game.js';
 import type { GameRepository } from '../repositories/gameRepository.js';
 import type { QuizService } from './quizService.js';
 import type { RoomService } from './roomService.js';
@@ -43,6 +43,7 @@ export class GameService {
     }
     return {
       id: game.id, roomId: game.roomId, roomPin: game.roomPin, quizId: game.quizId, status: game.status,
+      phase: game.phase, resultsStartedAt: game.resultsStartedAt, resultsEndsAt: game.resultsEndsAt,
       currentQuestionIndex: game.currentQuestionIndex, totalQuestions: game.totalQuestions,
       questionStartedAt: game.questionStartedAt, questionEndsAt: game.questionEndsAt,
       currentQuestion, startedAt: game.startedAt, finishedAt: game.finishedAt, createdAt: game.createdAt,
@@ -60,8 +61,9 @@ export class GameService {
     const timestamp = this.timestamp();
     const game: Game = {
       id: this.createId(), roomId: room.id, roomPin: room.pin, quizId: quiz.id, status: 'IN_PROGRESS',
-      currentQuestionIndex: 0, totalQuestions: quiz.questions.length, currentQuestionId: null,
-      questionStartedAt: null, questionEndsAt: null, startedAt: timestamp, finishedAt: null, createdAt: timestamp,
+      currentQuestionIndex: 0, totalQuestions: quiz.questions.length, currentQuestionId: null, phase: 'WAITING',
+      questionStartedAt: null, questionEndsAt: null, resultsStartedAt: null, resultsEndsAt: null,
+      startedAt: timestamp, finishedAt: null, createdAt: timestamp,
     };
     return this.publicState(await this.repository.create(game));
   }
@@ -78,7 +80,7 @@ export class GameService {
   async startQuestion(gameId: string): Promise<PublicGameState> {
     const game = await this.requireGame(gameId);
     if (game.status !== 'IN_PROGRESS') throw new DomainError('GAME_NOT_IN_PROGRESS', 409, 'A partida não está em andamento.');
-    if (game.currentQuestionId !== null) throw new DomainError('QUESTION_ALREADY_ACTIVE', 409, 'Já existe uma pergunta ativa.');
+    if (game.phase !== 'WAITING' || game.currentQuestionId !== null) throw new DomainError('QUESTION_ALREADY_ACTIVE', 409, 'Já existe uma pergunta ativa.');
     const quiz = await this.quizService.getQuizById(game.quizId);
     const question = quiz.questions[game.currentQuestionIndex];
     if (!question) throw new DomainError('QUESTION_NOT_STARTED', 409, 'Não há pergunta disponível para iniciar.');
@@ -101,6 +103,56 @@ export class GameService {
     return Boolean(await this.repository.findAnswer(state.id, questionId, playerId));
   }
 
+  /** Advances once every player still in the room has answered the revealed question. */
+  async advanceIfAllAnswered(roomPin: string, questionId: string): Promise<{ state: PublicGameState; started: boolean } | null> {
+    const room = await this.roomService.getRoomByPin(roomPin);
+    const game = await this.repository.findByRoomId(room.id);
+    if (!game || game.status !== 'IN_PROGRESS' || game.phase !== 'QUESTION_ACTIVE' || game.currentQuestionId !== questionId || !game.questionStartedAt) return null;
+    if (room.players.length === 0) return null;
+    const quiz = await this.quizService.getQuizById(game.quizId);
+    const question = quiz.questions.find((item) => item.id === questionId);
+    if (!question || this.nowMs() < Date.parse(game.questionStartedAt) + (question.revealTime ?? 0) * 1000) return null;
+    const answers = await Promise.all(room.players.map((player) => this.repository.findAnswer(game.id, questionId, player.id)));
+    if (answers.some((answer) => !answer)) return null;
+    try {
+      return await this.beginQuestionResults(game.id, questionId);
+    } catch (error) {
+      // A concurrent final answer or host action may have advanced the question first.
+      if (error instanceof DomainError && ['QUESTION_STATE_CHANGED', 'QUESTION_NOT_STARTED', 'GAME_NOT_IN_PROGRESS'].includes(error.code)) return null;
+      throw error;
+    }
+  }
+
+  async beginQuestionResults(gameId: string, expectedQuestionId: string): Promise<{ state: PublicGameState; started: boolean }> {
+    const game = await this.requireGame(gameId);
+    if (game.phase === 'QUESTION_RESULTS' && game.currentQuestionId === expectedQuestionId) return { state: await this.publicState(game), started: false };
+    if (game.status !== 'IN_PROGRESS' || game.phase !== 'QUESTION_ACTIVE' || game.currentQuestionId !== expectedQuestionId) {
+      throw new DomainError('QUESTION_STATE_CHANGED', 409, 'A pergunta atual já foi alterada.');
+    }
+    const startedAtMs = this.nowMs();
+    const results = await this.repository.enterResults(game.id, game.currentQuestionIndex, expectedQuestionId,
+      new Date(startedAtMs).toISOString(), new Date(startedAtMs + RESULTS_DURATION_MS).toISOString());
+    return { state: await this.publicState(results), started: true };
+  }
+
+  async advanceAfterResults(gameId: string): Promise<PublicGameState | null> {
+    const game = await this.requireGame(gameId);
+    if (game.phase !== 'QUESTION_RESULTS' || !game.currentQuestionId || !game.resultsEndsAt || this.nowMs() < Date.parse(game.resultsEndsAt)) return null;
+    const quiz = await this.quizService.getQuizById(game.quizId);
+    const nextQuestion = quiz.questions[game.currentQuestionIndex + 1] ?? null;
+    const nowMs = this.nowMs();
+    try {
+      const advanced = await this.repository.advanceAfterResults(game.id, game.currentQuestionIndex, game.currentQuestionId,
+        nextQuestion?.id ?? null, new Date(nowMs).toISOString(), nextQuestion ? new Date(nowMs + nextQuestion.timeLimit * 1000).toISOString() : null,
+        nextQuestion ? null : new Date(nowMs).toISOString());
+      if (advanced.status === 'FINISHED') await this.roomService.closeRoom(game.roomId);
+      return this.publicState(advanced);
+    } catch (error) {
+      if (error instanceof DomainError && ['QUESTION_STATE_CHANGED', 'GAME_NOT_IN_PROGRESS'].includes(error.code)) return null;
+      throw error;
+    }
+  }
+
   async isQuestionExpired(gameId: string): Promise<boolean> {
     const game = await this.requireGame(gameId);
     if (game.status !== 'IN_PROGRESS') throw new DomainError('GAME_NOT_IN_PROGRESS', 409, 'A partida não está em andamento.');
@@ -118,6 +170,7 @@ export class GameService {
     if (!game.currentQuestionId || !game.questionStartedAt || !game.questionEndsAt) {
       throw new DomainError('QUESTION_NOT_STARTED', 409, 'Não há pergunta ativa para responder.');
     }
+    if (game.phase !== 'QUESTION_ACTIVE') throw new DomainError('QUESTION_NOT_ACTIVE', 409, 'A pergunta não está aceitando respostas.');
     const room = await this.roomService.getRoomById(game.roomId);
     const player = room.players.find((item) => item.id === input.playerId);
     if (!player) throw new DomainError('PLAYER_NOT_FOUND', 404, 'Jogador não pertence a esta sala.');

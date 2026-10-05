@@ -26,3 +26,4 @@ export {
   ReviewQuizPage,
 };
 
+export { LoginPage } from './LoginPage';

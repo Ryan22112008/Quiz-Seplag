@@ -1,6 +1,7 @@
 import type { Quiz } from '@/types/quiz';
 import type { Room, RoomPlayer } from '@/types/room';
 import { API_BASE_URL } from '@/config/environment';
+import { useAuthStore } from '@/stores/authStore';
 
 export interface ApiRoom { id: string; pin: string; quizId: string; status: 'WAITING' | 'STARTING' | 'IN_PROGRESS' | 'FINISHED'; players: Array<{ id: string; name: string }> }
 export interface CreatedApiRoom extends ApiRoom { hostToken: string }
@@ -11,7 +12,8 @@ export interface ApiRankingEntry { position: number; playerId: string; playerNam
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
-  try { response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers } }); }
+  const csrf = useAuthStore.getState().csrfToken ?? document.cookie.split('; ').find((item) => item.startsWith('quiz_csrf='))?.split('=').slice(1).join('=');
+  try { response = await fetch(`${API_BASE_URL}${path}`, { ...init, credentials: 'include', headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...((init?.method ?? 'GET') !== 'GET' && csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}), ...init?.headers } }); }
   catch { throw new Error('Não foi possível conectar. Confira sua internet e tente novamente.'); }
   if (!response.ok) {
     const data = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
@@ -25,7 +27,8 @@ export const api = {
     let response: Response;
     const form = new FormData();
     form.append('image', file);
-    try { response = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', body: form }); }
+    const csrf = useAuthStore.getState().csrfToken ?? document.cookie.split('; ').find((item) => item.startsWith('quiz_csrf='))?.split('=').slice(1).join('=');
+    try { response = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', credentials: 'include', headers: csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}, body: form }); }
     catch { throw new Error('Não foi possível enviar a imagem.'); }
     const data = await response.json() as { imageUrl?: string; error?: { message?: string } };
     if (!response.ok || !data.imageUrl) throw new Error(data.error?.message ?? 'Não foi possível enviar a imagem.');

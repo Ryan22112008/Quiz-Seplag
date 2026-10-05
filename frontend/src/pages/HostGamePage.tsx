@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, DoorOpen, FastForward, Flag, Home, Users } from 'lucide-react';
+import { CheckCircle2, DoorOpen, FastForward, Home, Users } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { Logo } from '@/components/layout/Logo';
 import { GameProgress } from '@/components/game/GameProgress';
 import { GameStatus } from '@/components/game/GameStatus';
 import { RankingList } from '@/components/game/RankingList';
+import { FinalPodium } from '@/components/game/FinalPodium';
 import { QuizQuestion } from '@/components/quiz/QuizQuestion';
 import { RevealGate } from '@/components/quiz/RevealGate';
 import { imageSource } from '@/lib/imageSource';
@@ -85,7 +86,8 @@ export function HostGamePage() {
         <header className="border-b border-border bg-surface"><Container size="xl" className="flex min-h-16 items-center justify-between gap-3"><Logo /><GameStatus status="finished" /></Container></header>
         <main><Container size="xl" className="py-8 sm:py-10">
           <div ref={phaseRef} tabIndex={-1} className="mb-6 text-center focus:outline-none"><h1 className="type-h1 text-neutral-900">Partida encerrada</h1><p className="type-body mt-2 text-neutral-600">Resultado final do quiz {quiz.title}</p></div>
-          {!game.finalResult && <div className="mb-6 flex flex-col items-center gap-2" role="status" aria-live="polite"><span className="type-label text-neutral-700">Aguardando resultado...</span><p className="type-caption text-neutral-500">Os dados finais ainda não foram recebidos.</p></div>}
+          {!game.finalPresentation && game.ranking.length === 0 && <div className="mb-6 flex flex-col items-center gap-2" role="status" aria-live="polite"><span className="type-label text-neutral-700">Aguardando resultado...</span><p className="type-caption text-neutral-500">Os dados finais ainda não foram recebidos.</p></div>}
+          <FinalPodium entries={game.ranking} animate={game.finalPresentation === 'animate'} />
           <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
             <Card variant="elevated"><CardHeader><CardTitle>Estatísticas da partida</CardTitle></CardHeader><CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <StatCard label="Total de jogadores" value={room.players.length} />
@@ -113,7 +115,6 @@ export function HostGamePage() {
   const questionResultVisible = game.status === 'results';
   const correctOptionId = questionResultVisible ? game.questionResult?.correctOptionId ?? question.correctOptionId : undefined;
   const optionLabels = ['A', 'B', 'C', 'D'];
-  const disabledReason = 'Aguarde a atualização da partida.';
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -175,9 +176,9 @@ export function HostGamePage() {
                 <p className="type-caption border-t border-border pt-3 text-neutral-500">Acompanhe as respostas e a classificação da turma.</p>
               </CardContent></Card>
 
-              {game.status === 'question' && <div><Button size="lg" variant="outline" className="w-full" onClick={next} disabled={connectionState !== 'synced'}><FastForward className="size-4" aria-hidden="true" />{lastQuestion ? 'Pular e ver resultado' : 'Pular pergunta'}</Button><p className="type-caption mt-2 text-center text-neutral-500">{lastQuestion ? 'A partida será encerrada e o ranking será exibido.' : 'A próxima pergunta será aberta para todos.'}</p></div>}
-              {game.status === 'locked' && <Button size="lg" className="w-full" onClick={next} disabled={connectionState !== 'synced'}><Flag className="size-4" aria-hidden="true" />{lastQuestion ? 'Ver resultado final' : 'Próxima pergunta'}</Button>}
-              {game.status === 'results' && <div><Button size="lg" className="w-full" disabled aria-describedby="advance-disabled-reason">{lastQuestion ? 'Ver resultado final' : 'Próxima pergunta'}</Button><p id="advance-disabled-reason" className="type-caption mt-2 text-center text-neutral-500">{disabledReason}</p></div>}
+              {game.status === 'question' && <div><Button size="lg" variant="outline" className="w-full" onClick={next} disabled={connectionState !== 'synced'}><FastForward className="size-4" aria-hidden="true" />{lastQuestion ? 'Encerrar pergunta' : 'Pular para resultados'}</Button><p className="type-caption mt-2 text-center text-neutral-500">O ranking aparecerá antes da próxima etapa.</p></div>}
+              {game.status === 'locked' && <div className="rounded-xl border border-warning-200 bg-warning-50 p-4 text-center" role="status" aria-live="polite"><p className="type-body-sm text-warning-900">Calculando o ranking…</p></div>}
+              {game.status === 'results' && <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 text-center"><p className="type-body-sm text-primary-900">A próxima etapa começa automaticamente.</p>{game.resultsEndsAt && <Timer duration={3} endsAt={Date.parse(game.resultsEndsAt)} label="Próxima etapa em" size="sm" className="mt-3" />}</div>}
             </aside>
           </section>
         </Container>

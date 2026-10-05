@@ -10,7 +10,7 @@ export interface RealtimeTransport {
   subscribeLifecycle(handler: (event: 'close') => void): () => void;
 }
 
-const EVENT_TYPES = new Set(['ROOM_CREATED','PLAYER_JOINED','PLAYER_LEFT','GAME_STARTED','ROOM_SUBSCRIBED','ROOM_SYNCED','REALTIME_ERROR','QUESTION_STARTED','ANSWER_SUBMITTED','QUESTION_ENDED','RANKING_UPDATED','GAME_FINISHED','ROOM_CLOSED']);
+const EVENT_TYPES = new Set(['ROOM_CREATED','PLAYER_JOINED','PLAYER_LEFT','GAME_STARTED','ROOM_SUBSCRIBED','ROOM_SYNCED','REALTIME_ERROR','QUESTION_STARTED','ANSWER_SUBMITTED','QUESTION_ENDED','QUESTION_RESULTS','RANKING_UPDATED','GAME_FINISHED','ROOM_CLOSED']);
 
 export class WebSocketRealtimeTransport implements RealtimeTransport {
   private socket: WebSocket | null = null;

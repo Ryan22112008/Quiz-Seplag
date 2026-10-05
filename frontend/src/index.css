@@ -199,3 +199,81 @@
   @apply outline-2 outline-offset-2 outline-primary-500;
 }
 
+@layer utilities {
+  .podium-reveal {
+    animation: podium-rise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .podium-block-rise {
+    transform-origin: bottom;
+    animation: podium-block-rise 440ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .podium-winner-glow {
+    animation: podium-winner-glow 850ms ease-out 1.5s both;
+  }
+
+  .podium-confetti {
+    position: absolute;
+    inset: -1.5rem 0 2rem;
+    pointer-events: none;
+  }
+
+  .podium-confetti i {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    width: 6px;
+    height: 10px;
+    border-radius: 2px;
+    opacity: 0;
+    background: #fde047;
+    animation: podium-confetti 1100ms ease-out 1.7s both;
+  }
+
+  .podium-confetti i:nth-child(2n) { background: #f9a8d4; }
+  .podium-confetti i:nth-child(3n) { background: #67e8f9; }
+  .podium-confetti i:nth-child(1) { --confetti-x: -62px; --confetti-y: -44px; }
+  .podium-confetti i:nth-child(2) { --confetti-x: -44px; --confetti-y: -68px; }
+  .podium-confetti i:nth-child(3) { --confetti-x: -22px; --confetti-y: -54px; }
+  .podium-confetti i:nth-child(4) { --confetti-x: 4px; --confetti-y: -74px; }
+  .podium-confetti i:nth-child(5) { --confetti-x: 28px; --confetti-y: -56px; }
+  .podium-confetti i:nth-child(6) { --confetti-x: 52px; --confetti-y: -72px; }
+  .podium-confetti i:nth-child(7) { --confetti-x: 68px; --confetti-y: -42px; }
+  .podium-confetti i:nth-child(8) { --confetti-x: 6px; --confetti-y: -46px; }
+
+  @keyframes podium-rise {
+    from { opacity: 0; transform: translateY(22px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes podium-block-rise {
+    from { transform: scaleY(0.12); }
+    to { transform: scaleY(1); }
+  }
+
+  @keyframes podium-winner-glow {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(253 224 71 / 0); }
+    45% { transform: scale(1.18); box-shadow: 0 0 24px 8px rgb(253 224 71 / 0.7); }
+  }
+
+  @keyframes podium-confetti {
+    0% { opacity: 0; transform: translate(0, 0) scale(0.25) rotate(0); }
+    15% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--confetti-x), var(--confetti-y)) scale(1) rotate(180deg); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .podium-reveal,
+  .podium-block-rise,
+  .podium-winner-glow,
+  .podium-confetti i {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  .podium-confetti i { display: none; }
+}
+

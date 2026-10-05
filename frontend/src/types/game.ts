@@ -49,8 +49,11 @@ export interface GameState {
   finalResult: FinalResult | null;
   questionStatistics: QuestionStatistics | null;
   finalStatistics: FinalStatistics | null;
+  finalPresentation?: 'animate' | 'stable';
   gameId?: string;
   currentQuestionId?: string | null;
   questionEndsAt?: string | null;
+  resultsStartedAt?: string | null;
+  resultsEndsAt?: string | null;
   currentQuestion?: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionRevealAt: string; questionStartedAt: string; questionEndsAt: string } | null;
 }

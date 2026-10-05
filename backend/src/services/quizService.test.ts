@@ -27,6 +27,14 @@ describe('QuizService', () => {
     assert.equal((await service.listQuizzes()).length, 1);
     assert.equal((await service.getQuizById(quiz.id)).id, quiz.id);
   });
+  it('associa o proprietário vindo do contexto do servidor e rejeita ownerId enviado pelo cliente', async () => {
+    const service = setup();
+    const created = await service.createQuiz(payload(), 'user-42');
+    assert.equal(created.ownerId, 'user-42');
+    await assert.rejects(() => service.createQuiz({ ...payload(), ownerId: 'user-forjado' }, 'user-42'), (error) => error instanceof DomainError && error.code === 'INVALID_QUIZ');
+    assert.equal(await service.ownsQuiz(created.id, 'user-42'), true);
+    assert.equal(await service.ownsQuiz(created.id, 'other-user'), false);
+  });
   it('rejeita dados inválidos, inclusive alternativa correta ausente', async () => {
     const service = setup();
     await assert.rejects(() => service.createQuiz({ ...payload(), title: ' ' }), (e) => e instanceof DomainError && e.code === 'INVALID_QUIZ');

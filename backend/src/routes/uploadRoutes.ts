@@ -17,9 +17,9 @@ const upload = multer({
   limits: { fileSize: MAX_IMAGE_BYTES, files: 1, fields: 0 },
 });
 
-export function createUploadRoutes(): Router {
+export function createUploadRoutes(protectUpload?: RequestHandler): Router {
   const router = Router();
-  router.post('/uploads', upload.single('image'), uploadImage);
+  router.post('/uploads', ...(protectUpload ? [protectUpload] : []), upload.single('image'), uploadImage);
   router.get('/uploads/:filename', serveImage);
   const uploadErrorHandler: ErrorRequestHandler = (error, _request, response, next) => {
     if (error instanceof multer.MulterError) {

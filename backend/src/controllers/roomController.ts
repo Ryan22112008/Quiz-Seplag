@@ -53,7 +53,9 @@ export class RoomController {
       if (!token || !this.roomService.isValidHostToken(room.id, token)) {
         throw new DomainError('FORBIDDEN', 403, 'Somente o host da sala pode consultar os dados administrativos do quiz.');
       }
-      response.status(200).json(await this.quizService.getQuizById(room.quizId));
+      const quiz = await this.quizService.getQuizById(room.quizId);
+      if (quiz.ownerId && quiz.ownerId !== request.auth?.user.id) throw new DomainError('FORBIDDEN', 403, 'Você não tem autorização para consultar este quiz.');
+      response.status(200).json(quiz);
     } catch (error) {
       next(error);
     }

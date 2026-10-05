@@ -103,7 +103,7 @@ export function HomePage() {
                 </Stack>
 
                 <p className="type-caption text-neutral-500">
-                  Para jogar basta o PIN da sala — o login é só para quem cria o quiz.
+                  Entre com o Google para criar e conduzir quizzes. Para jogar, basta o PIN da sala.
                 </p>
               </div>
 

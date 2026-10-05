@@ -1,4 +1,7 @@
-import { Route, Routes, useSearchParams } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
+import { useAuthStore } from '@/stores/authStore';
+import { protectedRouteDecision } from '@/lib/authState.mjs';
+import { AuthenticatedHeader } from '@/components/layout/AuthenticatedHeader';
 import {
   ComingSoonPage,
   CreateQuizPage,
@@ -11,34 +14,28 @@ import {
   JoinGamePage,
   ReviewQuizPage,
   PlayerGamePage,
+  LoginPage,
 } from '@/pages';
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomeEntryPage />} />
-      {/* TEMPORARY — visual validation only, not part of the product */}
-      <Route path="/design-system" element={<DesignSystemPreview />} />
+      <Route path="/login" element={<LoginPage />} />
       {/* Room entry flow */}
       <Route path="/join" element={<JoinGamePage />} />
       <Route path="/jogar/:pin" element={<JoinGamePage />} />
       <Route path="/jogar/:pin/aguardando" element={<GameLobbyPage />} />
       <Route path="/jogar/:pin/partida" element={<PlayerGamePage />} />
       {/* Quiz creation flow */}
-      <Route path="/criar" element={<CreateQuizPage />} />
-      <Route path="/criar/:quizId/perguntas" element={<EditQuizQuestionsPage />} />
-      <Route path="/criar/:quizId/revisar" element={<ReviewQuizPage />} />
-      <Route path="/criar/:quizId/sala" element={<HostLobbyPage />} />
-      <Route path="/criar/:quizId/partida" element={<HostGamePage />} />
-      <Route
-        path="/login"
-        element={
-          <ComingSoonPage
-            title="Login ainda não está disponível"
-            description="A autenticação para criar e organizar quizzes chega em uma próxima etapa."
-          />
-        }
-      />
+      <Route element={<RequireAuth />}>
+        <Route path="/design-system" element={<DesignSystemPreview />} />
+        <Route path="/criar" element={<CreateQuizPage />} />
+        <Route path="/criar/:quizId/perguntas" element={<EditQuizQuestionsPage />} />
+        <Route path="/criar/:quizId/revisar" element={<ReviewQuizPage />} />
+        <Route path="/criar/:quizId/sala" element={<HostLobbyPage />} />
+        <Route path="/criar/:quizId/partida" element={<HostGamePage />} />
+      </Route>
       <Route
         path="*"
         element={
@@ -50,6 +47,15 @@ export function AppRoutes() {
       />
     </Routes>
   );
+}
+
+function RequireAuth() {
+  const status = useAuthStore((state) => state.status);
+  const location = useLocation();
+  const decision = protectedRouteDecision(status, location.pathname + location.search);
+  if (decision.kind === 'loading') return <main className="grid min-h-screen place-items-center text-neutral-600" role="status">Verificando sua sessão…</main>;
+  if (decision.kind === 'redirect') return <Navigate to={decision.to} replace />;
+  return <><AuthenticatedHeader /><Outlet /></>;
 }
 
 function HomeEntryPage() {

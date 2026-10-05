@@ -11,6 +11,7 @@ export interface Question {
 }
 export interface Quiz {
   id: string;
+  ownerId?: string;
   title: string;
   description?: string;
   category: string;

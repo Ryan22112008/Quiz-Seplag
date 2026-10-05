@@ -31,7 +31,7 @@ describe('RealtimeHub with real WebSocket clients and domain services', () => {
   const quizService = new QuizService(new InMemoryQuizRepository());
   const roomService = new RoomService(new InMemoryRoomRepository(), quizService);
   const gameService = new GameService(new InMemoryGameRepository(), roomService, quizService, { nowMs: () => nowMs });
-  const hub = new RealtimeHub({ roomService, gameService });
+  const hub = new RealtimeHub({ roomService, gameService }, { nowMs: () => nowMs });
   const httpServer = createServer((_request, response) => { response.writeHead(404).end(); });
   hub.attach(httpServer, '/realtime', ['https://quiz.example']);
   httpServer.listen(0, '127.0.0.1');
@@ -212,6 +212,7 @@ describe('RealtimeHub with real WebSocket clients and domain services', () => {
 
     nowMs = Date.parse(questionEvent.payload.questionEndsAt) + 1;
     const ended = Promise.all([waitForType(hostA, 'QUESTION_ENDED'), waitForType(playerA1, 'QUESTION_ENDED')]);
+    const firstResults = Promise.all([waitForType(hostA, 'QUESTION_RESULTS'), waitForType(playerA1, 'QUESTION_RESULTS')]);
     send(hostA, { type: 'END_QUESTION', payload: { roomPin: roomA.pin, questionId: questionEvent.payload.questionId } });
     await ended;
 
@@ -219,16 +220,23 @@ describe('RealtimeHub with real WebSocket clients and domain services', () => {
     const lockedSnapshot = waitForType(playerA2, 'ROOM_SYNCED');
     send(playerA2, { type: 'SUBSCRIBE_GAME', payload: { roomPin: roomA.pin, playerId: playerTwo.id, playerToken: playerTwoToken } });
     await lockedSubscribed;
-    assert.equal((await lockedSnapshot).payload.questionEnded, true);
+    const resultsSnapshot = (await lockedSnapshot).payload;
+    assert.equal(resultsSnapshot.questionEnded, true);
+    assert.equal(resultsSnapshot.game?.phase, 'QUESTION_RESULTS');
+    assert.ok(resultsSnapshot.game?.resultsEndsAt);
 
     const nextQuestion = Promise.all([waitForType(hostA, 'QUESTION_STARTED'), waitForType(playerA2, 'QUESTION_STARTED')]);
-    send(hostA, { type: 'NEXT_QUESTION', payload: { roomPin: roomA.pin } });
+    const firstResultsEvents = await firstResults;
+    assert.equal(firstResultsEvents[0]!.payload.ranking[0]!.playerId, playerOne.id);
+    nowMs = Date.parse(firstResultsEvents[0]!.payload.resultsEndsAt);
     const secondQuestion = (await nextQuestion)[0]!;
     assert.equal(secondQuestion.payload.questionIndex, 1);
 
     nowMs = Date.parse(secondQuestion.payload.questionEndsAt) + 1;
     const finalEvents = Promise.all([waitForType(hostA, 'GAME_FINISHED'), waitForType(playerA1, 'GAME_FINISHED'), waitForType(playerA2, 'GAME_FINISHED')]);
+    const finalResults = waitForType(hostA, 'QUESTION_RESULTS');
     send(hostA, { type: 'NEXT_QUESTION', payload: { roomPin: roomA.pin } });
+    nowMs = Date.parse((await finalResults).payload.resultsEndsAt);
     const finished = (await finalEvents)[0]!;
     assert.equal(finished.payload.ranking.find((entry) => entry.playerId === playerOne.id)?.score, 60);
     await assertNoMessage(playerB1);
@@ -290,7 +298,7 @@ function send(socket: ClientWebSocket, message: unknown): void { socket.send(JSO
 function waitForType<T extends ServerEvent['type']>(socket: ClientWebSocket, type: T): Promise<Extract<ServerEvent, { type: T }>> {
   return new Promise((resolve, reject) => {
     const seen: string[] = [];
-    const timeout = setTimeout(() => { cleanup(); reject(new Error(`Tempo esgotado aguardando ${type}; recebidos: ${seen.join(', ')}.`)); }, 2_000);
+    const timeout = setTimeout(() => { cleanup(); reject(new Error(`Tempo esgotado aguardando ${type}; recebidos: ${seen.join(', ')}.`)); }, 10_000);
     const onMessage = (data: Buffer) => {
       let value: unknown;
       try { value = JSON.parse(data.toString('utf8')) as unknown; } catch (error) { cleanup(); reject(error); return; }

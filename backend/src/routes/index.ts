@@ -13,8 +13,14 @@ import { InMemoryGameRepository } from '../repositories/gameRepository.js';
 import { GameService } from '../services/gameService.js';
 import { GameController } from '../controllers/gameController.js';
 import { createGameRoutes } from './gameRoutes.js';
+import { AuthService } from '../auth/authService.js';
+import { createAuthRoutes } from './authRoutes.js';
+import { loadConfig } from '../config/env.js';
 
 export const routes = Router();
+const config = loadConfig();
+export const authService = new AuthService(prisma, { clientId: config.googleClientId, clientSecret: config.googleClientSecret, callbackUrl: config.googleCallbackUrl, frontendOrigin: config.frontendUrl, secureCookies: config.nodeEnv === 'production', sessionSecret: config.sessionSecret });
+routes.use(createAuthRoutes(authService));
 
 routes.use(healthRoutes);
 const quizRepository = new PrismaQuizRepository(prisma);
@@ -23,5 +29,5 @@ export const quizService = new QuizService(quizRepository);
 export const roomService = new RoomService(roomRepository, quizService);
 export const gameService = new GameService(new InMemoryGameRepository(), roomService, quizService);
 routes.use(createQuizRoutes(new QuizController(quizService)));
-routes.use(createRoomRoutes(new RoomController(roomService, quizService)));
+routes.use(createRoomRoutes(new RoomController(roomService, quizService), quizService));
 routes.use(createGameRoutes(new GameController(gameService)));
