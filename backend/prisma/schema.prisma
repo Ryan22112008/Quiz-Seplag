@@ -25,6 +25,7 @@ model Question {
   imageUrl        String?  @db.VarChar(500)
   correctOptionId String
   timeLimit       Int
+  revealTime      Int      @default(0)
   points          Int
   position        Int
   quiz            Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)

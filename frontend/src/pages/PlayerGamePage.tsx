@@ -5,6 +5,7 @@ import { Container } from '@/components/layout/Container';
 import { Logo } from '@/components/layout/Logo';
 import { QuizQuestion } from '@/components/quiz/QuizQuestion';
 import { QuizOption } from '@/components/quiz/QuizOption';
+import { RevealGate } from '@/components/quiz/RevealGate';
 import { Timer } from '@/components/quiz/Timer';
 import { GameProgress } from '@/components/game/GameProgress';
 import { GameStatus } from '@/components/game/GameStatus';
@@ -77,7 +78,7 @@ export function PlayerGamePage() {
         <div className="mb-6 flex items-center justify-between gap-4"><div><p className="type-caption text-neutral-500">Sala · PIN {pin}</p><h1 className="type-h3 text-neutral-900">Quiz SEPLAG</h1></div>{game.status === 'question' && game.endsAt !== null && <Timer key={`${pin}-${question.questionId}`} duration={question.timeLimit} endsAt={Date.parse(question.questionEndsAt)} size="md" onExpire={() => undefined} />}</div>
         <Card variant="elevated" className="overflow-hidden"><CardContent className="flex flex-col gap-7 p-5 sm:gap-8 sm:p-8">
           <div ref={focusRef} tabIndex={-1} className="rounded-md focus:outline-2 focus:outline-offset-4 focus:outline-primary-500"><QuizQuestion index={game.currentQuestionIndex + 1} total={game.totalQuestions} question={question.text} imageUrl={question.imageUrl} /></div>
-          <div role="group" aria-label="Alternativas de resposta" className="grid gap-3">{question.options.map((option, index) => <QuizOption key={option.id} label={labels[index] ?? String(index + 1)} text={option.text} imageUrl={option.imageUrl} selected={game.selectedOptionId === option.id} state={game.selectedOptionId === option.id ? 'selected' : 'default'} disabled={optionsDisabled} onSelect={() => selectOption(pin, option.id)} />)}</div>
+          <RevealGate key={`${question.questionId}-${question.questionRevealAt}`} revealAt={question.questionRevealAt}><div role="group" aria-label="Alternativas de resposta" className="grid gap-3">{question.options.map((option, index) => <QuizOption key={option.id} label={labels[index] ?? String(index + 1)} text={option.text} imageUrl={option.imageUrl} selected={game.selectedOptionId === option.id} state={game.selectedOptionId === option.id ? 'selected' : 'default'} disabled={optionsDisabled} onSelect={() => selectOption(pin, option.id)} />)}</div></RevealGate>
           {game.answerStatus === 'submitted' && <Alert variant="success" title="Resposta registrada">Sua resposta foi salva.</Alert>}
           {game.status === 'results' && <RankingList entries={game.ranking} />}
           <Button size="lg" className="w-full" onClick={() => void sendAnswer()} disabled={submitDisabled}>{sending ? 'Enviando…' : game.answerStatus === 'submitted' ? 'Resposta enviada' : 'Responder'}</Button>

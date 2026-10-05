@@ -4,7 +4,7 @@ import { API_BASE_URL } from '@/config/environment';
 
 export interface ApiRoom { id: string; pin: string; quizId: string; status: 'WAITING' | 'STARTING' | 'IN_PROGRESS' | 'FINISHED'; players: Array<{ id: string; name: string }> }
 export interface CreatedApiRoom extends ApiRoom { hostToken: string }
-export interface PublicQuestion { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string }
+export interface PublicQuestion { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionRevealAt: string; questionStartedAt: string; questionEndsAt: string }
 export interface PublicGame { id: string; roomId: string; roomPin: string; quizId: string; status: 'IN_PROGRESS' | 'FINISHED'; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: string | null; questionEndsAt: string | null; currentQuestion: PublicQuestion | null }
 export interface AnswerResult { accepted: true; isCorrect: boolean; points: number; totalScore: number }
 export interface ApiRankingEntry { position: number; playerId: string; playerName: string; score: number; correctAnswers?: number }

@@ -60,6 +60,16 @@ describe('QuizService', () => {
     assert.equal(quiz.questions[0]?.imageUrl, '/uploads/00000000-0000-0000-0000-000000000000.png');
     assert.equal(quiz.questions[0]?.options[0]?.imageUrl, '/uploads/11111111-1111-1111-1111-111111111111.webp');
   });
+  it('usa revealTime zero por padrão e rejeita valores negativos, acima do limite ou do timeLimit', async () => {
+    const service = setup();
+    assert.equal((await service.createQuiz(payload())).questions[0]?.revealTime, 0);
+    const delayed = payload(); Object.assign(delayed.questions[0]!, { revealTime: 5 });
+    assert.equal((await service.createQuiz(delayed)).questions[0]?.revealTime, 5);
+    for (const revealTime of [-1, 11, 20, 2.5, '5']) {
+      const invalid = payload(); Object.assign(invalid.questions[0]!, { revealTime });
+      await assert.rejects(() => service.createQuiz(invalid), (error) => error instanceof DomainError && error.code === 'INVALID_QUIZ');
+    }
+  });
   it('retorna erro consistente para quiz inexistente', async () => {
     await assert.rejects(() => setup().getQuizById('missing'), (e) => e instanceof DomainError && e.code === 'QUIZ_NOT_FOUND' && e.statusCode === 404);
   });

@@ -10,7 +10,7 @@ export type ServerEvent =
   | { type: 'ROOM_SUBSCRIBED'; payload: { roomPin: string; role: 'host' | 'player'; playerToken?: string } }
   | { type: 'ROOM_SYNCED'; payload: { room: Room; game: { id: string; roomId: string; roomPin: string; quizId: string; status: 'IN_PROGRESS' | 'FINISHED'; currentQuestionIndex: number; totalQuestions: number; currentQuestion: GameState['currentQuestion']; questionStartedAt: string | null; questionEndsAt: string | null } | null; ranking: RankingEntry[]; hasAnsweredCurrentQuestion: boolean; questionEnded: boolean } }
   | { type: 'REALTIME_ERROR'; payload: { code: string; message: string } }
-  | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number; gameId: string; question: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string }; questionStartedAt: string; questionEndsAt: string } }
+  | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number; gameId: string; question: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionRevealAt: string; questionStartedAt: string; questionEndsAt: string }; questionStartedAt: string; questionEndsAt: string } }
   | { type: 'ANSWER_SUBMITTED'; payload: { roomPin: string; playerId: string } }
   | { type: 'QUESTION_ENDED'; payload: { roomPin: string; timedOut: boolean } }
   | { type: 'RANKING_UPDATED'; payload: { roomPin: string; ranking: RankingEntry[] } }

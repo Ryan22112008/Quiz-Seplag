@@ -36,6 +36,7 @@ export class GameService {
         ...(question.imageUrl ? { imageUrl: question.imageUrl } : {}),
         options: question.options.map(({ id, text, imageUrl }) => ({ id, text, ...(imageUrl ? { imageUrl } : {}) })),
         timeLimit: question.timeLimit,
+        questionRevealAt: new Date(Date.parse(game.questionStartedAt) + (question.revealTime ?? 0) * 1000).toISOString(),
         questionStartedAt: game.questionStartedAt,
         questionEndsAt: game.questionEndsAt,
       };
@@ -133,6 +134,10 @@ export class GameService {
       throw new DomainError('OPTION_NOT_FOUND', 404, 'Alternativa não pertence à pergunta atual.');
     }
     const answeredMs = this.nowMs();
+    const revealAt = Date.parse(game.questionStartedAt) + (question.revealTime ?? 0) * 1000;
+    if (answeredMs < revealAt) {
+      throw new DomainError('QUESTION_NOT_REVEALED', 409, 'As alternativas ainda não foram reveladas.');
+    }
     if (answeredMs >= Date.parse(game.questionEndsAt)) {
       throw new DomainError('QUESTION_EXPIRED', 409, 'O tempo para responder esta pergunta terminou.');
     }

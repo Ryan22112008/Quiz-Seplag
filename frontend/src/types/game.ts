@@ -52,5 +52,5 @@ export interface GameState {
   gameId?: string;
   currentQuestionId?: string | null;
   questionEndsAt?: string | null;
-  currentQuestion?: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string } | null;
+  currentQuestion?: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionRevealAt: string; questionStartedAt: string; questionEndsAt: string } | null;
 }

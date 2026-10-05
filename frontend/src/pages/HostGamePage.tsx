@@ -7,6 +7,7 @@ import { GameProgress } from '@/components/game/GameProgress';
 import { GameStatus } from '@/components/game/GameStatus';
 import { RankingList } from '@/components/game/RankingList';
 import { QuizQuestion } from '@/components/quiz/QuizQuestion';
+import { RevealGate } from '@/components/quiz/RevealGate';
 import { imageSource } from '@/lib/imageSource';
 import { Timer } from '@/components/quiz/Timer';
 import { Button } from '@/components/ui/Button';
@@ -160,7 +161,7 @@ export function HostGamePage() {
                   <div className="mt-7 rounded-xl border border-warning-200 bg-warning-50 p-5 text-center" role="status" aria-live="polite"><h2 className="type-h3 text-warning-950">Pergunta encerrada</h2><p className="type-body-sm mt-2 text-warning-900">Mostre a área de resultados para revisar as informações recebidas.</p></div>
                 ) : (
                   <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                    {question.options.map((option, index) => <div key={option.id} className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-border bg-surface p-4"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 font-bold text-neutral-700">{optionLabels[index] ?? index + 1}</span><span className="type-body min-w-0 flex-1 break-words font-medium text-neutral-900">{option.text}</span>{option.imageUrl && <img src={imageSource(option.imageUrl)} alt={`Imagem da alternativa ${index + 1}`} className="max-h-24 max-w-40 rounded-lg object-contain" />}</div>)}
+                    {game.status === 'question' ? <div className="sm:col-span-2"><RevealGate key={`${question.id}-${game.currentQuestion?.questionRevealAt}`} revealAt={game.currentQuestion?.questionRevealAt ?? new Date(0).toISOString()}><div className="grid gap-3 sm:grid-cols-2">{question.options.map((option, index) => <div key={option.id} className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-border bg-surface p-4"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 font-bold text-neutral-700">{optionLabels[index] ?? index + 1}</span><span className="type-body min-w-0 flex-1 break-words font-medium text-neutral-900">{option.text}</span>{option.imageUrl && <img src={imageSource(option.imageUrl)} alt={`Imagem da alternativa ${index + 1}`} className="max-h-24 max-w-40 rounded-lg object-contain" />}</div>)}</div></RevealGate></div> : question.options.map((option, index) => <div key={option.id} className="flex min-h-20 items-center gap-3 rounded-xl border-2 border-border bg-surface p-4"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 font-bold text-neutral-700">{optionLabels[index] ?? index + 1}</span><span className="type-body min-w-0 flex-1 break-words font-medium text-neutral-900">{option.text}</span>{option.imageUrl && <img src={imageSource(option.imageUrl)} alt={`Imagem da alternativa ${index + 1}`} className="max-h-24 max-w-40 rounded-lg object-contain" />}</div>)}
                   </div>
                 )}
               </CardContent>

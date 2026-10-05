@@ -74,7 +74,7 @@ describe('RealtimeHub with real WebSocket clients and domain services', () => {
 
     const quiz = await quizService.createQuiz({
       title: 'Quiz realtime', category: 'geral', questions: [0, 1].map((index) => ({
-        id: `source-question-${index}`, question: `Pergunta ${index + 1}?`, timeLimit: 5, points: 100,
+        id: `source-question-${index}`, question: `Pergunta ${index + 1}?`, timeLimit: 5, revealTime: index === 0 ? 2 : 0, points: 100,
         correctOptionId: `source-option-${index}-0`,
         options: [0, 1, 2, 3].map((option) => ({ id: `source-option-${index}-${option}`, text: `Alternativa ${option + 1}` })),
       })),
@@ -158,9 +158,29 @@ describe('RealtimeHub with real WebSocket clients and domain services', () => {
     send(hostA, { type: 'START_QUESTION', payload: { roomPin: roomA.pin } });
     const questionEvent = (await questionStartedA)[0]!;
     assert.equal(questionEvent.payload.question.questionEndsAt, new Date(nowMs + 5_000).toISOString());
+    assert.equal(questionEvent.payload.question.questionRevealAt, new Date(nowMs + 2_000).toISOString());
     assert.equal(JSON.stringify(questionEvent).includes('correctOptionId'), false);
     assert.equal(JSON.stringify(questionEvent).includes('points'), false);
     await assertNoMessage(playerB1);
+
+    const earlyAnswer = waitForType(playerA1, 'REALTIME_ERROR');
+    send(playerA1, { type: 'SUBMIT_ANSWER', payload: { roomPin: roomA.pin, questionId: questionEvent.payload.questionId, optionId: questionEvent.payload.question.options[0]!.id } });
+    assert.equal((await earlyAnswer).payload.code, 'QUESTION_NOT_REVEALED');
+
+    const revealDisconnect = once(playerA2, 'close');
+    playerA2.close();
+    await revealDisconnect;
+    await waitUntil(() => hub.roomConnectionCount(roomA.pin) === 2);
+    playerA2 = await connect(endpoint);
+    const revealSubscribed = waitForType(playerA2, 'ROOM_SUBSCRIBED');
+    const revealSnapshot = waitForType(playerA2, 'ROOM_SYNCED');
+    send(playerA2, { type: 'SUBSCRIBE_GAME', payload: { roomPin: roomA.pin, playerId: playerTwo.id, playerToken: playerTwoToken } });
+    await revealSubscribed;
+    const duringReveal = (await revealSnapshot).payload.game?.currentQuestion;
+    assert.equal(duringReveal?.questionRevealAt, questionEvent.payload.question.questionRevealAt);
+    assert.equal(Date.parse(duringReveal!.questionRevealAt) > nowMs, true);
+
+    nowMs = Date.parse(questionEvent.payload.question.questionRevealAt);
 
     const answerEvents = Promise.all([
       waitForType(hostA, 'ANSWER_SUBMITTED'), waitForType(hostA, 'RANKING_UPDATED'),
@@ -186,6 +206,7 @@ describe('RealtimeHub with real WebSocket clients and domain services', () => {
     assert.equal(activeSnapshot.game?.currentQuestion?.questionId, questionEvent.payload.questionId);
     assert.equal(activeSnapshot.game?.currentQuestion?.questionStartedAt, questionEvent.payload.questionStartedAt);
     assert.equal(activeSnapshot.game?.currentQuestion?.questionEndsAt, questionEvent.payload.questionEndsAt);
+    assert.equal(activeSnapshot.game?.currentQuestion?.questionRevealAt, questionEvent.payload.question.questionRevealAt);
     assert.equal(activeSnapshot.hasAnsweredCurrentQuestion, true);
     assert.equal((await roomService.getRoomByPin(roomA.pin)).players.length, 2, 'reconexão não cria jogador duplicado');
 
@@ -209,7 +230,7 @@ describe('RealtimeHub with real WebSocket clients and domain services', () => {
     const finalEvents = Promise.all([waitForType(hostA, 'GAME_FINISHED'), waitForType(playerA1, 'GAME_FINISHED'), waitForType(playerA2, 'GAME_FINISHED')]);
     send(hostA, { type: 'NEXT_QUESTION', payload: { roomPin: roomA.pin } });
     const finished = (await finalEvents)[0]!;
-    assert.equal(finished.payload.ranking.find((entry) => entry.playerId === playerOne.id)?.score, 100);
+    assert.equal(finished.payload.ranking.find((entry) => entry.playerId === playerOne.id)?.score, 60);
     await assertNoMessage(playerB1);
 
     const finishedSubscribed = waitForType(playerA1, 'ROOM_SUBSCRIBED');
@@ -218,7 +239,7 @@ describe('RealtimeHub with real WebSocket clients and domain services', () => {
     await finishedSubscribed;
     const finalSnapshot = (await finishedSnapshot).payload;
     assert.equal(finalSnapshot.game?.status, 'FINISHED');
-    assert.equal(finalSnapshot.ranking.find((entry) => entry.playerId === playerOne.id)?.score, 100);
+    assert.equal(finalSnapshot.ranking.find((entry) => entry.playerId === playerOne.id)?.score, 60);
 
     const invalidJson = waitForType(playerB1, 'REALTIME_ERROR');
     playerB1.send('{');

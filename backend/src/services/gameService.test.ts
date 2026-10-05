@@ -8,14 +8,14 @@ import { GameService } from './gameService.js';
 import { QuizService } from './quizService.js';
 import { RoomService } from './roomService.js';
 
-async function createSetup(emptyQuiz = false, questionCount = 1, clock?: { value: number }) {
+async function createSetup(emptyQuiz = false, questionCount = 1, clock?: { value: number }, revealTime = 0) {
   let quizId = 0; let roomId = 0; let gameId = 0;
   const quizService = new QuizService(new InMemoryQuizRepository(), () => `quiz-${++quizId}`);
   const quiz = await quizService.createQuiz({
     title: 'Quiz de partida', category: 'geral', questions: emptyQuiz ? [] : Array.from({ length: questionCount }, (_, index) => ({
       question: `Pergunta ${index + 1}`, options: [
         { id: 'client-a', text: 'A' }, { id: 'client-b', text: 'B' }, { id: 'client-c', text: 'C' }, { id: 'client-d', text: 'D' },
-      ], correctOptionId: 'client-c', timeLimit: index === 1 ? 5 : 20, points: 1000,
+      ], correctOptionId: 'client-c', timeLimit: index === 1 ? 5 : 20, revealTime, points: 1000,
     })),
   });
   const roomService = new RoomService(new InMemoryRoomRepository(), quizService, {
@@ -258,6 +258,21 @@ describe('GameService', () => {
       playerId: player.id, questionId: question.id, optionId: question.correctOptionId,
       points: 999999, isCorrect: false, answeredAt: '2000-01-01T00:00:00.000Z', score: 999999,
     }), 'INVALID_ANSWER', 400);
+  });
+
+  it('calcula a revelação no servidor e recusa respostas antecipadas sem alterar prazo e pontuação', async () => {
+    const clock = { value: Date.parse('2026-10-02T12:00:00.000Z') };
+    const { room, quiz, gameService, roomService } = await createSetup(false, 1, clock, 5);
+    const { player } = await roomService.joinRoom(room.pin, 'Jogador');
+    const game = await gameService.startGame(room.pin);
+    const question = (await gameService.startQuestion(game.id)).currentQuestion!;
+    assert.equal(question.questionRevealAt, '2026-10-02T12:00:05.000Z');
+    assert.equal(question.questionEndsAt, '2026-10-02T12:00:20.000Z');
+    await expectDomainError(() => gameService.submitAnswer(game.id, { playerId: player.id, questionId: question.questionId, optionId: question.options[0]!.id }), 'QUESTION_NOT_REVEALED', 409);
+    clock.value = Date.parse(question.questionRevealAt);
+    const result = await gameService.submitAnswer(game.id, { playerId: player.id, questionId: question.questionId, optionId: quiz.questions[0]!.correctOptionId });
+    assert.equal(result.accepted, true);
+    assert.equal(result.points, 750);
   });
 
   it('rejeita resposta no limite exato do prazo e mantém as respostas válidas já registradas', async () => {

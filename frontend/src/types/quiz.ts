@@ -17,6 +17,7 @@ export interface QuizQuestion {
   options: QuizOption[];
   correctOptionId: string;
   timeLimit: number;
+  revealTime?: number;
   points: number;
 }
 

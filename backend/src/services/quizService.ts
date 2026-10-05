@@ -18,8 +18,9 @@ export class QuizService {
     }
 
     const questions: Question[] = input.questions.map((raw): Question => {
-      if (!isRecord(raw) || !hasOnlyKeys(raw, ['id', 'question', 'imageUrl', 'options', 'correctOptionId', 'timeLimit', 'points']) || !validOptionalId(raw.id) || !text(raw.question, 0, 300) || (!raw.question.trim() && !validImageUrl(raw.imageUrl)) || !validOptionalImageUrl(raw.imageUrl) || !Array.isArray(raw.options) || raw.options.length < 2 || raw.options.length > 8 ||
+      if (!isRecord(raw) || !hasOnlyKeys(raw, ['id', 'question', 'imageUrl', 'options', 'correctOptionId', 'timeLimit', 'revealTime', 'points']) || !validOptionalId(raw.id) || !text(raw.question, 0, 300) || (!raw.question.trim() && !validImageUrl(raw.imageUrl)) || !validOptionalImageUrl(raw.imageUrl) || !Array.isArray(raw.options) || raw.options.length < 2 || raw.options.length > 8 ||
         !Number.isInteger(raw.timeLimit) || ![5, 10, 15, 20, 30, 60].includes(raw.timeLimit as number) ||
+        (raw.revealTime !== undefined && (!Number.isInteger(raw.revealTime) || (raw.revealTime as number) < 0 || (raw.revealTime as number) > 10 || (raw.revealTime as number) >= (raw.timeLimit as number))) ||
         !Number.isInteger(raw.points) || ![100, 200, 500, 1000].includes(raw.points as number)) {
         throw new DomainError('INVALID_QUIZ', 400, 'Uma pergunta ou suas configurações são inválidas.');
       }
@@ -32,7 +33,7 @@ export class QuizService {
         throw new DomainError('INVALID_QUIZ', 400, 'A pergunta deve indicar uma alternativa correta válida.');
       }
       const options: QuizOption[] = sourceOptions.map((o) => ({ id: this.createId(), text: ((o as Record<string, unknown>).text as string).trim(), ...((o as Record<string, unknown>).imageUrl ? { imageUrl: (o as Record<string, unknown>).imageUrl as string } : {}) }));
-      return { id: this.createId(), question: (raw.question as string).trim(), ...(raw.imageUrl ? { imageUrl: raw.imageUrl as string } : {}), options, correctOptionId: options[oldIds.indexOf(raw.correctOptionId)]!.id, timeLimit: raw.timeLimit as number, points: raw.points as number };
+      return { id: this.createId(), question: (raw.question as string).trim(), ...(raw.imageUrl ? { imageUrl: raw.imageUrl as string } : {}), options, correctOptionId: options[oldIds.indexOf(raw.correctOptionId)]!.id, timeLimit: raw.timeLimit as number, revealTime: (raw.revealTime as number | undefined) ?? 0, points: raw.points as number };
     });
     const timestamp = this.now();
     const quiz: Quiz = {

@@ -20,7 +20,7 @@ function mapQuiz(row: Prisma.QuizGetPayload<{ include: { questions: { include: {
     ...(row.description === null ? {} : { description: row.description }),
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
     questions: row.questions.sort((a, b) => a.position - b.position).map((q): Question => ({
-      id: q.id, question: q.question, ...(q.imageUrl ? { imageUrl: q.imageUrl } : {}), correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, points: q.points,
+      id: q.id, question: q.question, ...(q.imageUrl ? { imageUrl: q.imageUrl } : {}), correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, revealTime: q.revealTime, points: q.points,
       options: q.options.sort((a, b) => a.position - b.position).map((o): QuizOption => ({ id: o.id, text: o.text, ...(o.imageUrl ? { imageUrl: o.imageUrl } : {}) })),
     })),
   };
@@ -36,7 +36,7 @@ export class PrismaQuizRepository implements QuizRepository {
         id: quiz.id, title: quiz.title, description: quiz.description ?? null, category: quiz.category,
         createdAt: new Date(quiz.createdAt), updatedAt: new Date(quiz.updatedAt),
         questions: { create: quiz.questions.map((q, position) => ({
-          id: q.id, question: q.question, imageUrl: q.imageUrl ?? null, correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, points: q.points, position,
+          id: q.id, question: q.question, imageUrl: q.imageUrl ?? null, correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, revealTime: q.revealTime ?? 0, points: q.points, position,
           options: { create: q.options.map((o, optionPosition) => ({ id: o.id, text: o.text, imageUrl: o.imageUrl ?? null, position: optionPosition })) },
         })) },
       }, include: nestedQuiz });
@@ -65,7 +65,7 @@ export class PrismaQuizRepository implements QuizRepository {
         return tx.quiz.update({ where: { id: quiz.id }, data: {
           title: quiz.title, description: quiz.description ?? null, category: quiz.category, updatedAt: new Date(quiz.updatedAt),
           questions: { create: quiz.questions.map((q, position) => ({
-            id: q.id, question: q.question, imageUrl: q.imageUrl ?? null, correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, points: q.points, position,
+            id: q.id, question: q.question, imageUrl: q.imageUrl ?? null, correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, revealTime: q.revealTime ?? 0, points: q.points, position,
             options: { create: q.options.map((o, optionPosition) => ({ id: o.id, text: o.text, imageUrl: o.imageUrl ?? null, position: optionPosition })) },
           })) },
         }, include: nestedQuiz });
