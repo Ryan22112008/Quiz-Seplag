@@ -1,6 +1,6 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Home } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +15,7 @@ import { subscribeRoom } from '@/services/realtime/session';
 import { useRoomStore } from '@/stores/roomStore';
 import { useToastStore } from '@/components/ui/useToastStore';
 import { useEffect, useState } from 'react';
+import { resolveRoomPin } from '@/lib/roomJoinUrl.mjs';
 
 const playerNameSchema = baseTextSchema
   .min(2, 'O nome deve ter pelo menos 2 caracteres')
@@ -32,7 +33,9 @@ type JoinRoomValues = z.infer<typeof joinRoomSchema>;
  * Route: /jogar/:pin
  */
 export function JoinGamePage() {
-  const { pin } = useParams<{ pin: string }>();
+  const { pin: routePin } = useParams<{ pin: string }>();
+  const [searchParams] = useSearchParams();
+  const pin = resolveRoomPin(routePin, searchParams.get('pin')) ?? '';
   const navigate = useNavigate();
   const setIdentity = usePlayerStore((state) => state.setIdentity);
   const playerId = usePlayerStore((state) => state.playerId);
@@ -40,16 +43,40 @@ export function JoinGamePage() {
   const existingRoomPin = usePlayerStore((state) => state.roomPin);
   const upsertRoom = useRoomStore((state) => state.upsertRoom);
   const [joining, setJoining] = useState(false);
+  const [validation, setValidation] = useState<{ pin: string; status: 'loading' | 'valid' | 'invalid'; message: string }>({ pin: '', status: 'loading', message: 'Verificando o PIN da sala…' });
+  const roomValidation = validation.pin === pin ? validation.status : 'loading';
+  const roomValidationMessage = validation.pin === pin ? validation.message : 'Verificando o PIN da sala…';
 
   useEffect(() => {
-    if (!pin || !playerId || existingRoomPin !== pin) return;
+    let current = true;
+    if (!pin) {
+      setValidation({ pin, status: 'invalid', message: 'O link não contém um PIN válido de seis dígitos.' });
+      return () => { current = false; };
+    }
+    setValidation({ pin, status: 'loading', message: 'Verificando o PIN da sala…' });
+    void api.getRoom(pin).then((room) => {
+      if (!current) return;
+      if (room.status === 'FINISHED') {
+        setValidation({ pin, status: 'invalid', message: 'Esta sala já foi encerrada. Peça ao anfitrião um novo PIN.' });
+        return;
+      }
+      setValidation({ pin, status: 'valid', message: '' });
+    }).catch((error: unknown) => {
+      if (!current) return;
+      setValidation({ pin, status: 'invalid', message: error instanceof Error ? error.message : 'Não foi possível localizar esta sala. Confira o PIN e tente novamente.' });
+    });
+    return () => { current = false; };
+  }, [pin]);
+
+  useEffect(() => {
+    if (validation.pin !== pin || validation.status !== 'valid' || !pin || !playerId || existingRoomPin !== pin) return;
     let current = true;
     void subscribeRoom(pin, playerId, undefined, playerToken).then(() => { if (current) navigate(`/jogar/${pin}/aguardando`, { replace: true }); }).catch((error: unknown) => {
       if (hasErrorCode(error, 'PLAYER_NOT_FOUND')) usePlayerStore.getState().clearPlayer();
       if (current) useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível recuperar sua sessão', description: error instanceof Error ? error.message : 'Entre novamente na sala.' });
     });
     return () => { current = false; };
-  }, [existingRoomPin, navigate, pin, playerId, playerToken]);
+  }, [existingRoomPin, navigate, pin, playerId, playerToken, validation]);
 
   const {
     register,
@@ -62,7 +89,7 @@ export function JoinGamePage() {
   });
 
   const onValidSubmit = async (values: JoinRoomValues) => {
-    if (!pin || joining) return;
+    if (roomValidation !== 'valid' || !pin || joining) return;
     setJoining(true);
     try {
       const existing = usePlayerStore.getState();
@@ -81,21 +108,21 @@ export function JoinGamePage() {
     } finally { setJoining(false); }
   };
 
-  if (!pin) {
+  if (roomValidation !== 'valid') {
     return (
       <Container size="md" className="min-h-screen flex items-center justify-center py-12">
         <Card variant="elevated" className="w-full max-w-md">
           <CardHeader>
-            <h1 className="type-h2 text-neutral-900">PIN não encontrado</h1>
+            <h1 className="type-h2 text-neutral-900">{roomValidation === 'loading' ? 'Verificando sala' : 'Sala indisponível'}</h1>
             <CardDescription>
-              Não foi possível identificar o PIN da sala. Por favor, tente novamente.
+              {roomValidation === 'loading' ? 'Estamos confirmando se o PIN corresponde a uma sala ativa.' : roomValidationMessage}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ButtonLink to="/" size="lg" className="w-full">
+            {roomValidation === 'loading' ? <p className="type-body-sm text-center text-neutral-500" role="status">{roomValidationMessage}</p> : <ButtonLink to="/" size="lg" className="w-full">
               <Home className="size-4" aria-hidden="true" />
               Voltar para o início
-            </ButtonLink>
+            </ButtonLink>}
           </CardContent>
         </Card>
       </Container>
@@ -133,7 +160,7 @@ export function JoinGamePage() {
               error={errors.playerName?.message}
               inputClassName="text-center"
             />
-            <Button type="submit" size="lg" className="w-full" disabled={joining}>
+            <Button type="submit" size="lg" className="w-full" disabled={joining || roomValidation !== 'valid'}>
               {joining ? 'Entrando…' : 'Entrar na sala'}
               <ArrowRight className="size-4" aria-hidden="true" />
             </Button>

@@ -20,6 +20,7 @@ export function AppRoutes() {
       {/* TEMPORARY — visual validation only, not part of the product */}
       <Route path="/design-system" element={<DesignSystemPreview />} />
       {/* Room entry flow */}
+      <Route path="/join" element={<JoinGamePage />} />
       <Route path="/jogar/:pin" element={<JoinGamePage />} />
       <Route path="/jogar/:pin/aguardando" element={<GameLobbyPage />} />
       <Route path="/jogar/:pin/partida" element={<PlayerGamePage />} />

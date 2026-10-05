@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, CircleHelp, DoorOpen, Home, Play, Users } from 'lucide-react';
+import { ArrowLeft, CircleHelp, DoorOpen, Home, Play, Users } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { Logo } from '@/components/layout/Logo';
 import { Badge } from '@/components/ui/Badge';
@@ -21,6 +21,8 @@ import { subscribeRoom, sendCommand, closeRoomRealtime } from '@/services/realti
 import { useToastStore } from '@/components/ui/useToastStore';
 import { RealtimeConnectionNotice } from '@/components/game/RealtimeConnectionNotice';
 import { useRealtimeStore } from '@/stores/realtimeStore';
+import { QRCodeSVG } from 'qrcode.react';
+import { buildRoomJoinUrl } from '@/lib/roomJoinUrl.mjs';
 
 export function HostLobbyPage() {
   const { quizId } = useParams<{ quizId: string }>();
@@ -100,6 +102,7 @@ export function HostLobbyPage() {
     clearRoom(room.pin);
     navigate(`/criar/${quizId}/revisar`);
   };
+  const joinUrl = buildRoomJoinUrl(room.pin, window.location.origin);
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -149,10 +152,10 @@ export function HostLobbyPage() {
                 <Badge variant="primary" className="w-fit">{categoryLabel}</Badge>
                 {quiz.description && <p className="type-body-sm text-neutral-600">{quiz.description}</p>}
                 <div className="rounded-xl bg-neutral-50 p-4"><p className="type-caption text-neutral-500">Perguntas</p><p className="type-h3 text-neutral-900">{quiz.questions.length}</p></div>
-                <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong bg-neutral-100 p-4 text-center">
-                  <div className="grid size-12 place-items-center rounded-xl bg-neutral-100 text-neutral-400" aria-hidden="true"><Check className="size-6" /></div>
-                  <p className="type-label text-neutral-700">QR Code indisponível nesta etapa</p>
-                  <p className="type-caption max-w-xs text-neutral-500">A entrada por código QR poderá ser adicionada com o serviço de salas.</p>
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-white p-4 text-center">
+                  <QRCodeSVG value={joinUrl} size={176} level="M" title={`QR Code para entrar na sala ${room.pin}`} />
+                  <p className="type-label text-neutral-700">Leia para entrar na sala</p>
+                  <p className="type-caption max-w-xs break-all text-neutral-500">{joinUrl}</p>
                 </div>
               </CardContent>
             </Card>
