@@ -3,6 +3,7 @@ import express, { type ErrorRequestHandler } from 'express';
 import { loadConfig } from './config/env.js';
 import { DomainError } from './domain/errors.js';
 import { routes } from './routes/index.js';
+import { createUploadRoutes } from './routes/uploadRoutes.js';
 
 const config = loadConfig();
 export const app = express();
@@ -18,6 +19,7 @@ app.use(cors({
   },
 }));
 app.use(express.json({ limit: '1mb' }));
+app.use(createUploadRoutes());
 app.use(routes);
 
 app.use((_request, response) => {

@@ -22,6 +22,7 @@ model Question {
   id              String   @id
   quizId          String
   question        String   @db.VarChar(300)
+  imageUrl        String?  @db.VarChar(500)
   correctOptionId String
   timeLimit       Int
   points          Int
@@ -37,6 +38,7 @@ model Option {
   id         String   @id
   questionId String
   text       String   @db.VarChar(100)
+  imageUrl   String?  @db.VarChar(500)
   position   Int
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 

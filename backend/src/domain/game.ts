@@ -22,7 +22,8 @@ export interface PublicQuestionState {
   questionId: string;
   questionIndex: number;
   text: string;
-  options: ReadonlyArray<{ id: string; text: string }>;
+  imageUrl?: string;
+  options: ReadonlyArray<{ id: string; text: string; imageUrl?: string }>;
   timeLimit: number;
   questionStartedAt: string;
   questionEndsAt: string;

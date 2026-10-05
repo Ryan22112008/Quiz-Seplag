@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus, Pencil, Trash2, ArrowLeft, Home } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowLeft, Home, X } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { ButtonLink } from '@/components/ui/ButtonLink';
@@ -20,20 +20,24 @@ import {
   DEFAULT_POINTS,
   type QuizQuestion,
 } from '@/types/quiz';
-import { baseTextSchema } from '@/lib/validators';
+import { ImagePicker } from '@/components/quiz/ImagePicker';
+import { imageSource } from '@/lib/imageSource';
 
 const questionOptionSchema = z.object({
   id: z.string(),
-  text: z.string().min(1, 'A alternativa é obrigatória').max(100, 'Máximo 100 caracteres'),
-});
+  text: z.string().max(100, 'Máximo 100 caracteres'),
+  imageUrl: z.string().optional(),
+}).refine((option) => option.text.trim().length > 0 || Boolean(option.imageUrl), 'Adicione texto ou uma imagem à alternativa');
 
 const questionSchema = z.object({
-  question: baseTextSchema.min(1, 'A pergunta é obrigatória').max(300, 'Máximo 300 caracteres'),
-  options: z.array(questionOptionSchema).min(4, 'São necessárias 4 alternativas'),
+  question: z.string().trim().max(300, 'Máximo 300 caracteres'),
+  imageUrl: z.string().optional(),
+  options: z.array(questionOptionSchema).min(2, 'São necessárias pelo menos 2 alternativas').max(8, 'O máximo é 8 alternativas'),
   correctOptionId: z.string().min(1, 'Selecione a resposta correta'),
   timeLimit: z.number(),
   points: z.number(),
-});
+}).refine((data) => data.question.trim().length > 0 || Boolean(data.imageUrl), { path: ['question'], message: 'Informe a pergunta ou adicione uma imagem' })
+  .refine((data) => data.options.some((option) => option.id === data.correctOptionId), { path: ['correctOptionId'], message: 'Selecione uma alternativa correta' });
 
 type QuestionFormData = z.infer<typeof questionSchema>;
 
@@ -62,11 +66,22 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    if (!open) return;
+    setFormData(initialData ? { ...initialData, options: initialData.options.map((option) => ({ ...option })) } : {
+      question: '', imageUrl: '', options: Array.from({ length: 4 }, (_, index) => ({ id: `opt-${Date.now()}-${index}`, text: '' })),
+      correctOptionId: '', timeLimit: DEFAULT_TIME_LIMIT, points: DEFAULT_POINTS,
+    });
+    setErrors({});
+  }, [initialData, open]);
+
   const handleOptionChange = (index: number, text: string) => {
     const newOptions = [...formData.options];
     newOptions[index] = { ...newOptions[index], text };
     setFormData({ ...formData, options: newOptions });
   };
+
+  const removeOption = (id: string) => setFormData((current) => ({ ...current, options: current.options.filter((option) => option.id !== id), correctOptionId: current.correctOptionId === id ? '' : current.correctOptionId }));
 
   const handleSave = () => {
     try {
@@ -78,16 +93,15 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
       if (error instanceof z.ZodError) {
         const newErrors: Record<string, string> = {};
         error.errors.forEach((err) => {
-          if (err.path[0]) {
-            newErrors[err.path[0] as string] = err.message;
-          }
+          if (err.path[0] === 'options' && typeof err.path[1] === 'number') newErrors[`option-${err.path[1]}`] = err.message;
+          else if (err.path[0]) newErrors[err.path[0] as string] = err.message;
         });
         setErrors(newErrors);
       }
     }
   };
 
-  const optionLabels = ['A', 'B', 'C', 'D'];
+  const optionLabels = 'ABCDEFGH';
 
   return (
     <Modal
@@ -114,23 +128,27 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
           onChange={(e) => setFormData({ ...formData, question: e.target.value })}
           error={errors.question}
         />
+        <ImagePicker label="da pergunta" value={formData.imageUrl} onChange={(imageUrl) => setFormData({ ...formData, imageUrl })} />
 
         <div>
           <label className="type-label mb-3 block text-neutral-700">Alternativas</label>
           <div className="flex flex-col gap-3">
             {formData.options.map((option, index) => (
-              <div key={option.id} className="flex items-start gap-3">
+              <div key={option.id} className="flex flex-wrap items-start gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-display font-bold">
                   {optionLabels[index]}
                 </div>
-                <div className="flex-1">
+                <div className="w-[calc(100%-3.25rem)] sm:min-w-40 sm:flex-1">
                   <Input
                     placeholder={`Alternativa ${optionLabels[index]}`}
                     value={option.text}
                     onChange={(e) => handleOptionChange(index, e.target.value)}
                     maxLength={100}
-                    error={errors.options && !option.text ? 'Campo obrigatório' : undefined}
+                    error={errors[`option-${index}`]}
                   />
+                </div>
+                <div className="w-full sm:w-auto">
+                  <ImagePicker label={`da alternativa ${optionLabels[index]}`} value={option.imageUrl} onChange={(imageUrl) => setFormData((current) => ({ ...current, options: current.options.map((item) => item.id === option.id ? { ...item, imageUrl } : item) }))} />
                 </div>
                 <Radio
                   name="correctOption"
@@ -139,9 +157,12 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
                   onChange={() => setFormData({ ...formData, correctOptionId: option.id })}
                   className="mt-2"
                 />
+                <Button variant="ghost" size="icon" disabled={formData.options.length <= 2} aria-label={`Remover alternativa ${optionLabels[index]}`} onClick={() => removeOption(option.id)}><X className="size-4" aria-hidden="true" /></Button>
               </div>
             ))}
           </div>
+          <Button className="mt-3" variant="outline" disabled={formData.options.length >= 8} onClick={() => setFormData((current) => ({ ...current, options: [...current.options, { id: `opt-${Date.now()}`, text: '' }] }))}><Plus className="size-4" aria-hidden="true" />Adicionar alternativa</Button>
+          {formData.options.length >= 8 && <p className="type-caption mt-2 text-neutral-500">Limite de 8 alternativas.</p>}
           {errors.correctOptionId && (
             <p className="type-caption mt-2 font-medium text-danger-600">{errors.correctOptionId}</p>
           )}
@@ -222,7 +243,8 @@ export function EditQuizQuestionsPage() {
     const newQuestion: QuizQuestion = {
       id: questionId,
       question: data.question.trim(),
-      options: data.options.map((opt) => ({ id: opt.id, text: opt.text.trim() })),
+      ...(data.imageUrl ? { imageUrl: data.imageUrl } : {}),
+      options: data.options.map((opt) => ({ id: opt.id, text: opt.text.trim(), ...(opt.imageUrl ? { imageUrl: opt.imageUrl } : {}) })),
       correctOptionId: data.correctOptionId,
       timeLimit: data.timeLimit,
       points: data.points,
@@ -294,6 +316,7 @@ export function EditQuizQuestionsPage() {
                           <h3 className="type-body-lg font-medium text-neutral-900 mb-2">
                             {question.question}
                           </h3>
+                          {question.imageUrl && <img src={imageSource(question.imageUrl)} alt="Imagem da pergunta" className="mb-3 max-h-48 w-full rounded-lg object-contain" />}
                           <div className="flex flex-col gap-1 sm:flex-row sm:gap-4">
                             <span className="type-caption text-neutral-500">
                               {question.timeLimit}s · {question.points} pontos
@@ -311,7 +334,7 @@ export function EditQuizQuestionsPage() {
                                 : ''
                             }`}
                           >
-                            {optionLabels[optIndex]}) {option.text}
+                            {optionLabels[optIndex]}) {option.text}{option.imageUrl && <img src={imageSource(option.imageUrl)} alt={`Imagem da alternativa ${optionLabels[optIndex]}`} className="mt-1 max-h-24 max-w-full rounded object-contain" />}
                           </div>
                         ))}
                       </div>

@@ -4,7 +4,7 @@ import { API_BASE_URL } from '@/config/environment';
 
 export interface ApiRoom { id: string; pin: string; quizId: string; status: 'WAITING' | 'STARTING' | 'IN_PROGRESS' | 'FINISHED'; players: Array<{ id: string; name: string }> }
 export interface CreatedApiRoom extends ApiRoom { hostToken: string }
-export interface PublicQuestion { questionId: string; questionIndex: number; text: string; options: Array<{ id: string; text: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string }
+export interface PublicQuestion { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: Array<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string }
 export interface PublicGame { id: string; roomId: string; roomPin: string; quizId: string; status: 'IN_PROGRESS' | 'FINISHED'; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: string | null; questionEndsAt: string | null; currentQuestion: PublicQuestion | null }
 export interface AnswerResult { accepted: true; isCorrect: boolean; points: number; totalScore: number }
 export interface ApiRankingEntry { position: number; playerId: string; playerName: string; score: number; correctAnswers?: number }
@@ -21,6 +21,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  uploadImage: async (file: File): Promise<string> => {
+    let response: Response;
+    const form = new FormData();
+    form.append('image', file);
+    try { response = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', body: form }); }
+    catch { throw new Error('Não foi possível enviar a imagem.'); }
+    const data = await response.json() as { imageUrl?: string; error?: { message?: string } };
+    if (!response.ok || !data.imageUrl) throw new Error(data.error?.message ?? 'Não foi possível enviar a imagem.');
+    return data.imageUrl;
+  },
   createQuiz: (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>) => request<Quiz>('/quizzes', { method: 'POST', body: JSON.stringify(quiz) }),
   getQuiz: (id: string) => request<Quiz>(`/quizzes/${encodeURIComponent(id)}`),
   createRoom: (quizId: string) => request<CreatedApiRoom>('/rooms', { method: 'POST', body: JSON.stringify({ quizId }) }),

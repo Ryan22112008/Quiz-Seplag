@@ -13,6 +13,7 @@ export interface Quiz {
 export interface QuizQuestion {
   id: string;
   question: string;
+  imageUrl?: string;
   options: QuizOption[];
   correctOptionId: string;
   timeLimit: number;
@@ -22,6 +23,7 @@ export interface QuizQuestion {
 export interface QuizOption {
   id: string;
   text: string;
+  imageUrl?: string;
 }
 
 export const QUIZ_CATEGORIES = [

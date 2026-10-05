@@ -1,17 +1,19 @@
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/cn';
+import { imageSource } from '@/lib/imageSource';
 
 export interface QuizQuestionProps {
   index: number;
   total?: number;
   question: string;
+  imageUrl?: string;
   category?: string;
   points?: number;
   className?: string;
 }
 
 /** Presentational question header — number, text and auxiliary metadata only. */
-export function QuizQuestion({ index, total, question, category, points, className }: QuizQuestionProps) {
+export function QuizQuestion({ index, total, question, imageUrl, category, points, className }: QuizQuestionProps) {
   return (
     <div className={cn('flex w-full flex-col gap-3 text-center', className)}>
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -23,6 +25,7 @@ export function QuizQuestion({ index, total, question, category, points, classNa
         {points !== undefined && <Badge variant="neutral">{points} pts</Badge>}
       </div>
       <h2 className="type-h2 mx-auto max-w-3xl text-balance text-neutral-900">{question}</h2>
+      {imageUrl && <img src={imageSource(imageUrl)} alt="Imagem da pergunta" className="mx-auto max-h-72 w-full rounded-xl object-contain" />}
     </div>
   );
 }

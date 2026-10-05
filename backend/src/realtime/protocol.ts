@@ -20,7 +20,7 @@ export type ServerEvent =
   | { type: 'PLAYER_JOINED'; payload: { roomPin: string; player: { id: string; name: string } } }
   | { type: 'PLAYER_LEFT'; payload: { roomPin: string; playerId: string } }
   | { type: 'GAME_STARTED'; payload: { quizId: string; roomPin: string; totalQuestions: number } }
-  | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number; gameId: string; question: { questionId: string; questionIndex: number; text: string; options: ReadonlyArray<{ id: string; text: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string }; questionStartedAt: string; questionEndsAt: string } }
+  | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number; gameId: string; question: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: ReadonlyArray<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionStartedAt: string; questionEndsAt: string }; questionStartedAt: string; questionEndsAt: string } }
   | { type: 'ANSWER_SUBMITTED'; payload: { roomPin: string; playerId: string } }
   | { type: 'QUESTION_ENDED'; payload: { roomPin: string; timedOut: boolean } }
   | { type: 'RANKING_UPDATED'; payload: { roomPin: string; ranking: Array<{ position: number; playerId: string; playerName: string; score: number; correctAnswers: number }> } }

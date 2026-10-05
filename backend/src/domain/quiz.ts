@@ -1,7 +1,8 @@
-export interface QuizOption { id: string; text: string }
+export interface QuizOption { id: string; text: string; imageUrl?: string }
 export interface Question {
   id: string;
   question: string;
+  imageUrl?: string;
   options: QuizOption[];
   correctOptionId: string;
   timeLimit: number;

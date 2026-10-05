@@ -18,21 +18,21 @@ export class QuizService {
     }
 
     const questions: Question[] = input.questions.map((raw): Question => {
-      if (!isRecord(raw) || !hasOnlyKeys(raw, ['id', 'question', 'options', 'correctOptionId', 'timeLimit', 'points']) || !validOptionalId(raw.id) || !text(raw.question, 1, 300) || !Array.isArray(raw.options) || raw.options.length !== 4 ||
+      if (!isRecord(raw) || !hasOnlyKeys(raw, ['id', 'question', 'imageUrl', 'options', 'correctOptionId', 'timeLimit', 'points']) || !validOptionalId(raw.id) || !text(raw.question, 0, 300) || (!raw.question.trim() && !validImageUrl(raw.imageUrl)) || !validOptionalImageUrl(raw.imageUrl) || !Array.isArray(raw.options) || raw.options.length < 2 || raw.options.length > 8 ||
         !Number.isInteger(raw.timeLimit) || ![5, 10, 15, 20, 30, 60].includes(raw.timeLimit as number) ||
         !Number.isInteger(raw.points) || ![100, 200, 500, 1000].includes(raw.points as number)) {
         throw new DomainError('INVALID_QUIZ', 400, 'Uma pergunta ou suas configurações são inválidas.');
       }
       const sourceOptions = raw.options as unknown[];
-      if (!sourceOptions.every((o) => isRecord(o) && hasOnlyKeys(o, ['id', 'text']) && text(o.text, 1, 100))) {
-        throw new DomainError('INVALID_QUIZ', 400, 'Cada alternativa deve conter um texto válido.');
+      if (!sourceOptions.every((o) => isRecord(o) && hasOnlyKeys(o, ['id', 'text', 'imageUrl']) && text(o.text, 0, 100) && (o.text.trim().length > 0 || validImageUrl(o.imageUrl)) && validOptionalImageUrl(o.imageUrl))) {
+        throw new DomainError('INVALID_QUIZ', 400, 'Cada alternativa deve conter texto ou uma imagem válida.');
       }
       const oldIds = sourceOptions.map((o) => isRecord(o) && isIdentifier(o.id) ? o.id : '');
       if (oldIds.some((id) => id.length === 0) || new Set(oldIds).size !== oldIds.length || typeof raw.correctOptionId !== 'string' || !oldIds.includes(raw.correctOptionId)) {
         throw new DomainError('INVALID_QUIZ', 400, 'A pergunta deve indicar uma alternativa correta válida.');
       }
-      const options: QuizOption[] = sourceOptions.map((o) => ({ id: this.createId(), text: ((o as Record<string, unknown>).text as string).trim() }));
-      return { id: this.createId(), question: (raw.question as string).trim(), options, correctOptionId: options[oldIds.indexOf(raw.correctOptionId)]!.id, timeLimit: raw.timeLimit as number, points: raw.points as number };
+      const options: QuizOption[] = sourceOptions.map((o) => ({ id: this.createId(), text: ((o as Record<string, unknown>).text as string).trim(), ...((o as Record<string, unknown>).imageUrl ? { imageUrl: (o as Record<string, unknown>).imageUrl as string } : {}) }));
+      return { id: this.createId(), question: (raw.question as string).trim(), ...(raw.imageUrl ? { imageUrl: raw.imageUrl as string } : {}), options, correctOptionId: options[oldIds.indexOf(raw.correctOptionId)]!.id, timeLimit: raw.timeLimit as number, points: raw.points as number };
     });
     const timestamp = this.now();
     const quiz: Quiz = {
@@ -58,3 +58,5 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: string[]): boolean
 
 function isIdentifier(value: unknown): value is string { return typeof value === 'string' && value.trim().length > 0 && value.length <= 128; }
 function validOptionalId(value: unknown): boolean { return value === undefined || isIdentifier(value); }
+function validImageUrl(value: unknown): value is string { return typeof value === 'string' && /^\/uploads\/[a-f0-9-]{36}\.(?:png|jpg|webp)$/u.test(value); }
+function validOptionalImageUrl(value: unknown): boolean { return value === undefined || validImageUrl(value); }

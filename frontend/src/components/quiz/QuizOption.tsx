@@ -1,11 +1,13 @@
 import { Check, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { imageSource } from '@/lib/imageSource';
 
 export type QuizOptionState = 'default' | 'selected' | 'correct' | 'incorrect' | 'disabled';
 
 export interface QuizOptionProps {
   label: string;
   text: string;
+  imageUrl?: string;
   state?: QuizOptionState;
   selected?: boolean;
   disabled?: boolean;
@@ -29,6 +31,7 @@ const stateClasses: Record<QuizOptionState, string> = {
 export function QuizOption({
   label,
   text,
+  imageUrl,
   state = 'default',
   selected = false,
   disabled = false,
@@ -76,6 +79,7 @@ export function QuizOption({
         )}
       </span>
       <span className="type-body min-w-0 flex-1 font-medium break-words text-neutral-900">{text}</span>
+      {imageUrl && <img src={imageSource(imageUrl)} alt={`Imagem da alternativa ${label}`} className="max-h-24 max-w-28 shrink-0 rounded-lg object-contain sm:max-h-32 sm:max-w-40" />}
     </button>
   );
 }

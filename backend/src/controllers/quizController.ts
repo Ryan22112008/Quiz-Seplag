@@ -24,6 +24,6 @@ export function toPublicQuiz(quiz: Awaited<ReturnType<QuizService['getQuizById']
   return {
     id: quiz.id, title: quiz.title, description: quiz.description, category: quiz.category,
     createdAt: quiz.createdAt, updatedAt: quiz.updatedAt,
-    questions: quiz.questions.map(({ id, question, options, timeLimit, points }) => ({ id, question, options, timeLimit, points })),
+    questions: quiz.questions.map(({ id, question, imageUrl, options, timeLimit, points }) => ({ id, question, ...(imageUrl ? { imageUrl } : {}), options, timeLimit, points })),
   };
 }

@@ -37,6 +37,29 @@ describe('QuizService', () => {
     const bad = payload(); bad.questions[0]!.correctOptionId = 'unknown';
     await assert.rejects(() => service.createQuiz(bad), (e) => e instanceof DomainError && e.code === 'INVALID_QUIZ');
   });
+  it('aceita de duas a oito alternativas e rejeita os limites fora do intervalo', async () => {
+    const service = setup();
+    const two = payload();
+    two.questions[0]!.options.splice(2);
+    two.questions[0]!.correctOptionId = 'b';
+    assert.equal((await service.createQuiz(two)).questions[0]?.options.length, 2);
+    const tooFew = payload();
+    tooFew.questions[0]!.options.splice(1);
+    tooFew.questions[0]!.correctOptionId = 'a';
+    await assert.rejects(() => service.createQuiz(tooFew), (e) => e instanceof DomainError && e.code === 'INVALID_QUIZ');
+    const tooMany = payload();
+    tooMany.questions[0]!.options.push(...Array.from({ length: 5 }, (_, index) => ({ id: `extra-${index}`, text: 'Extra' })));
+    await assert.rejects(() => service.createQuiz(tooMany), (e) => e instanceof DomainError && e.code === 'INVALID_QUIZ');
+  });
+  it('aceita imagens armazenadas pela aplicação nas perguntas e alternativas', async () => {
+    const data = payload();
+    data.questions[0]!.question = '';
+    Object.assign(data.questions[0]!, { imageUrl: '/uploads/00000000-0000-0000-0000-000000000000.png' });
+    Object.assign(data.questions[0]!.options[0]!, { text: '', imageUrl: '/uploads/11111111-1111-1111-1111-111111111111.webp' });
+    const quiz = await setup().createQuiz(data);
+    assert.equal(quiz.questions[0]?.imageUrl, '/uploads/00000000-0000-0000-0000-000000000000.png');
+    assert.equal(quiz.questions[0]?.options[0]?.imageUrl, '/uploads/11111111-1111-1111-1111-111111111111.webp');
+  });
   it('retorna erro consistente para quiz inexistente', async () => {
     await assert.rejects(() => setup().getQuizById('missing'), (e) => e instanceof DomainError && e.code === 'QUIZ_NOT_FOUND' && e.statusCode === 404);
   });

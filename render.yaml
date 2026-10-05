@@ -7,11 +7,17 @@ services:
     preDeployCommand: npm run db:deploy
     healthCheckPath: /health
     numInstances: 1
+    disk:
+      name: quiz-seplag-uploads
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
         sync: false
+      - key: UPLOADS_DIR
+        value: /var/data/uploads
       - key: FRONTEND_ORIGINS
         sync: false
 
