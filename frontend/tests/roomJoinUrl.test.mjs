@@ -6,7 +6,7 @@ test('QR URL usa a origem do frontend e contém somente o PIN como parâmetro', 
   const result = new URL(buildRoomJoinUrl('012345', 'https://quiz-seplag-1.onrender.com'));
 
   assert.equal(result.origin, 'https://quiz-seplag-1.onrender.com');
-  assert.equal(result.pathname, '/join');
+  assert.equal(result.pathname, '/');
   assert.deepEqual([...result.searchParams.entries()], [['pin', '012345']]);
   assert.equal(result.hash, '');
 });

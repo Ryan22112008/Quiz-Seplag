@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CircleHelp, DoorOpen, Home, Play, Users } from 'lucide-react';
+import { ArrowLeft, CircleHelp, Copy, DoorOpen, Home, Play, QrCode, Users } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { Logo } from '@/components/layout/Logo';
 import { Badge } from '@/components/ui/Badge';
@@ -103,6 +103,14 @@ export function HostLobbyPage() {
     navigate(`/criar/${quizId}/revisar`);
   };
   const joinUrl = buildRoomJoinUrl(room.pin, window.location.origin);
+  const copyJoinUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      useToastStore.getState().push({ variant: 'success', title: 'Link copiado', description: 'Envie o link para os jogadores entrarem nesta sala.' });
+    } catch {
+      useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível copiar', description: 'Você pode abrir o link de entrada abaixo e copiá-lo pela barra do navegador.' });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -152,11 +160,25 @@ export function HostLobbyPage() {
                 <Badge variant="primary" className="w-fit">{categoryLabel}</Badge>
                 {quiz.description && <p className="type-body-sm text-neutral-600">{quiz.description}</p>}
                 <div className="rounded-xl bg-neutral-50 p-4"><p className="type-caption text-neutral-500">Perguntas</p><p className="type-h3 text-neutral-900">{quiz.questions.length}</p></div>
-                <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-white p-4 text-center">
-                  <QRCodeSVG value={joinUrl} size={176} level="M" title={`QR Code para entrar na sala ${room.pin}`} />
-                  <p className="type-label text-neutral-700">Leia para entrar na sala</p>
-                  <p className="type-caption max-w-xs break-all text-neutral-500">{joinUrl}</p>
-                </div>
+                <section aria-label="Entrada por QR Code" className="overflow-hidden rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 via-white to-accent-50 p-5 text-center shadow-inner">
+                  <div className="mb-4 flex items-center justify-center gap-3 text-left">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-100 text-primary-700"><QrCode className="size-5" aria-hidden="true" /></span>
+                    <div>
+                      <p className="type-label text-neutral-900">Entrada rápida</p>
+                      <p className="type-caption text-neutral-600">Aponte a câmera do celular</p>
+                    </div>
+                  </div>
+                  <div className="mx-auto grid w-fit place-items-center rounded-2xl border border-neutral-200 bg-white p-3 shadow-lg ring-4 ring-white/70">
+                    <QRCodeSVG value={joinUrl} size={192} level="M" marginSize={4} title={`QR Code para entrar na sala ${room.pin}`} />
+                  </div>
+                  <p className="type-label mt-4 text-neutral-800">Escaneie para participar</p>
+                  <p className="type-caption mt-1 text-neutral-600">Ou compartilhe o link com os jogadores.</p>
+                  <div className="mt-3 flex flex-col items-center gap-2">
+                    <a className="type-caption max-w-full break-all font-medium text-primary-700 underline underline-offset-2 hover:text-primary-900" href={joinUrl}>Abrir link de entrada</a>
+                    <Button variant="outline" size="sm" onClick={copyJoinUrl}><Copy className="size-4" aria-hidden="true" />Copiar link</Button>
+                  </div>
+                  <p className="mt-4 border-t border-primary-100 pt-3 text-xs font-medium text-neutral-600">Se preferir, digite o PIN <span className="font-bold tracking-widest text-neutral-900">{room.pin}</span></p>
+                </section>
               </CardContent>
             </Card>
           </div>

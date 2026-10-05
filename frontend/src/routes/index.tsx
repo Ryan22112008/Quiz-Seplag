@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useSearchParams } from 'react-router-dom';
 import {
   ComingSoonPage,
   CreateQuizPage,
@@ -16,7 +16,7 @@ import {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<HomeEntryPage />} />
       {/* TEMPORARY — visual validation only, not part of the product */}
       <Route path="/design-system" element={<DesignSystemPreview />} />
       {/* Room entry flow */}
@@ -50,4 +50,9 @@ export function AppRoutes() {
       />
     </Routes>
   );
+}
+
+function HomeEntryPage() {
+  const [searchParams] = useSearchParams();
+  return searchParams.has('pin') ? <JoinGamePage /> : <HomePage />;
 }
