@@ -21,7 +21,7 @@ export function ReviewQuizPage() {
   const navigate = useNavigate();
   const { getQuizById } = useQuizStore();
   const upsertRoom = useRoomStore((state) => state.upsertRoom);
-  const updateQuiz = useQuizStore((state) => state.updateQuiz);
+  const upsertQuiz = useQuizStore((state) => state.upsertQuiz);
   const [creating, setCreating] = useState(false);
 
   const quiz = quizId ? getQuizById(quizId) : undefined;
@@ -59,7 +59,10 @@ export function ReviewQuizPage() {
     setCreating(true);
     try {
       const savedQuiz = await api.createQuiz({ title: quiz.title, description: quiz.description, category: quiz.category, questions: quiz.questions });
-      updateQuiz(quiz.id, savedQuiz);
+      // Keep the draft addressable while this review screen remains mounted.
+      // The server assigns a different ID, so replacing the draft here briefly
+      // makes getQuizById(quizId) return undefined before navigation completes.
+      upsertQuiz(savedQuiz);
       const serverRoom = await api.createRoom(savedQuiz.id);
       upsertRoom(toFrontendRoom(serverRoom));
       navigate(`/criar/${savedQuiz.id}/sala`);
