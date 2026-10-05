@@ -32,4 +32,4 @@ COPY --from=build /app/backend/prisma ./prisma
 
 USER node
 EXPOSE 10000
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npm run db:deploy && npm start"]
