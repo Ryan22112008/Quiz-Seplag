@@ -174,17 +174,13 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
             label="Tempo"
             options={TIME_LIMITS.map((t) => ({ value: t.value.toString(), label: t.label }))}
             value={formData.timeLimit.toString()}
             onChange={(e) => setFormData((current) => ({ ...current, timeLimit: Number(e.target.value) }))}
           />
-          <div className="flex flex-col gap-1.5">
-            <span className="type-label text-neutral-700">Tempo antes de mostrar alternativas</span>
-            <div className="flex h-10 items-center rounded-lg border border-border-strong bg-neutral-50 px-3 text-sm text-neutral-700" aria-label="Tempo antes de mostrar alternativas: 5 segundos">5 segundos (fixo)</div>
-          </div>
           <Select
             label="Pontuação"
             options={POINT_VALUES.map((p) => ({ value: p.value.toString(), label: p.label }))}
@@ -285,7 +281,7 @@ export function EditQuizQuestionsPage() {
       options: data.options.map((opt) => ({ id: opt.id, text: opt.text.trim(), ...(opt.imageUrl ? { imageUrl: opt.imageUrl } : {}) })),
       correctOptionId: data.correctOptionId,
       timeLimit: data.timeLimit,
-      revealTime: data.revealTime,
+      revealTime: DEFAULT_REVEAL_TIME,
       points: data.points,
     };
 
