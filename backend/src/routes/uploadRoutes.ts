@@ -8,7 +8,6 @@ import multer from 'multer';
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const storageDirectory = process.env.UPLOADS_DIR ?? join(process.cwd(), 'uploads');
-const allowedTypes = new Map([['image/png', 'png'], ['image/jpeg', 'jpg'], ['image/webp', 'webp']]);
 const upload = multer({
   storage: multer.diskStorage({
     destination: (_request, _file, callback) => { void mkdir(storageDirectory, { recursive: true }).then(() => callback(null, storageDirectory), (error: Error) => callback(error, storageDirectory)); },
@@ -39,19 +38,13 @@ export function createUploadRoutes(protectUpload?: RequestHandler): Router {
 const uploadImage: RequestHandler = async (request, response, next) => {
   const file = request.file;
   if (!file) { response.status(400).json({ error: { message: 'Envie um arquivo de imagem.' } }); return; }
-  const extension = allowedTypes.get(file.mimetype);
-  const originalExtension = file.originalname.toLowerCase().split('.').pop();
-  if (!extension || (extension === 'jpg' ? !['jpg', 'jpeg'].includes(originalExtension ?? '') : extension !== originalExtension)) {
-    await unlink(file.path).catch(() => undefined);
-    response.status(400).json({ error: { message: 'Use uma imagem PNG, JPEG ou WebP com extensão correspondente.' } });
-    return;
-  }
   try {
     const handle = await open(file.path, 'r');
     const header = Buffer.alloc(12);
     const { bytesRead } = await handle.read(header, 0, header.length, 0);
     await handle.close();
-    if (!matchesImageSignature(header.subarray(0, bytesRead), extension)) throw new Error('INVALID_IMAGE_CONTENT');
+    const extension = detectImageExtension(header.subarray(0, bytesRead));
+    if (!extension) throw new Error('INVALID_IMAGE_CONTENT');
     const filename = `${randomUUID()}.${extension}`;
     await rename(file.path, join(storageDirectory, filename));
     response.status(201).json({ imageUrl: `/uploads/${filename}` });
@@ -71,8 +64,9 @@ const serveImage: RequestHandler = async (request, response, next) => {
   catch (error) { if (!response.headersSent) response.sendStatus(404); else next(error); }
 };
 
-function matchesImageSignature(header: Buffer, extension: string): boolean {
-  if (extension === 'png') return header.length >= 8 && header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  if (extension === 'jpg') return header.length >= 3 && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
-  return header.length >= 12 && header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP';
+function detectImageExtension(header: Buffer): 'png' | 'jpg' | 'webp' | undefined {
+  if (header.length >= 8 && header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'png';
+  if (header.length >= 3 && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) return 'jpg';
+  if (header.length >= 12 && header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+  return undefined;
 }
