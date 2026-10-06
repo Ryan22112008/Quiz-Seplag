@@ -17,6 +17,7 @@ import {
   TIME_LIMITS,
   POINT_VALUES,
   DEFAULT_TIME_LIMIT,
+  DEFAULT_REVEAL_TIME,
   DEFAULT_POINTS,
   type QuizQuestion,
 } from '@/types/quiz';
@@ -37,7 +38,7 @@ const questionSchema = z.object({
   options: z.array(questionOptionSchema).min(2, 'São necessárias pelo menos 2 alternativas').max(8, 'O máximo é 8 alternativas'),
   correctOptionId: z.string().min(1, 'Selecione a resposta correta'),
   timeLimit: z.number(),
-  revealTime: z.number().int().min(0).max(10),
+  revealTime: z.literal(DEFAULT_REVEAL_TIME),
   points: z.number(),
 }).refine((data) => data.question.trim().length > 0 || Boolean(data.imageUrl), { path: ['question'], message: 'Informe a pergunta ou adicione uma imagem' })
   .refine((data) => data.revealTime < data.timeLimit, { path: ['revealTime'], message: 'O atraso deve ser menor que o tempo total da pergunta' })
@@ -54,7 +55,7 @@ interface QuestionModalProps {
 
 function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProps) {
   const [formData, setFormData] = useState<QuestionFormData>(
-    (initialData ? { ...initialData, revealTime: initialData.revealTime ?? 0 } : {
+    (initialData ? { ...initialData, timeLimit: Math.max(initialData.timeLimit, 10), revealTime: DEFAULT_REVEAL_TIME } : {
       question: '',
       options: [
         { id: 'opt-1', text: '' },
@@ -64,7 +65,7 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
       ],
       correctOptionId: '',
       timeLimit: DEFAULT_TIME_LIMIT,
-      revealTime: 0,
+      revealTime: DEFAULT_REVEAL_TIME,
       points: DEFAULT_POINTS,
     }),
   );
@@ -73,9 +74,9 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
 
   useEffect(() => {
     if (!open) return;
-    setFormData(initialData ? { ...initialData, revealTime: initialData.revealTime ?? 0, options: initialData.options.map((option) => ({ ...option })) } : {
+    setFormData(initialData ? { ...initialData, timeLimit: Math.max(initialData.timeLimit, 10), revealTime: DEFAULT_REVEAL_TIME, options: initialData.options.map((option) => ({ ...option })) } : {
       question: '', imageUrl: '', options: Array.from({ length: 4 }, (_, index) => ({ id: `opt-${Date.now()}-${index}`, text: '' })),
-      correctOptionId: '', timeLimit: DEFAULT_TIME_LIMIT, revealTime: 0, points: DEFAULT_POINTS,
+      correctOptionId: '', timeLimit: DEFAULT_TIME_LIMIT, revealTime: DEFAULT_REVEAL_TIME, points: DEFAULT_POINTS,
     });
     setErrors({});
   }, [initialData, open]);
@@ -178,15 +179,12 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
             label="Tempo"
             options={TIME_LIMITS.map((t) => ({ value: t.value.toString(), label: t.label }))}
             value={formData.timeLimit.toString()}
-            onChange={(e) => setFormData((current) => ({ ...current, timeLimit: Number(e.target.value), revealTime: current.revealTime >= Number(e.target.value) ? 0 : current.revealTime }))}
+            onChange={(e) => setFormData((current) => ({ ...current, timeLimit: Number(e.target.value) }))}
           />
-          <Select
-            label="Tempo antes de mostrar alternativas"
-            options={Array.from({ length: Math.min(11, formData.timeLimit) }, (_, seconds) => seconds).map((seconds) => ({ value: String(seconds), label: seconds === 0 ? 'Imediatamente' : `${seconds} ${seconds === 1 ? 'segundo' : 'segundos'}` }))}
-            value={String(formData.revealTime ?? 0)}
-            error={errors.revealTime}
-            onChange={(e) => setFormData({ ...formData, revealTime: Number(e.target.value) })}
-          />
+          <div className="flex flex-col gap-1.5">
+            <span className="type-label text-neutral-700">Tempo antes de mostrar alternativas</span>
+            <div className="flex h-10 items-center rounded-lg border border-border-strong bg-neutral-50 px-3 text-sm text-neutral-700" aria-label="Tempo antes de mostrar alternativas: 5 segundos">5 segundos (fixo)</div>
+          </div>
           <Select
             label="Pontuação"
             options={POINT_VALUES.map((p) => ({ value: p.value.toString(), label: p.label }))}

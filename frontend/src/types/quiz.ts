@@ -39,7 +39,6 @@ export const QUIZ_CATEGORIES = [
 ];
 
 export const TIME_LIMITS = [
-  { value: 5, label: '5 segundos' },
   { value: 10, label: '10 segundos' },
   { value: 15, label: '15 segundos' },
   { value: 20, label: '20 segundos' },
@@ -55,4 +54,5 @@ export const POINT_VALUES = [
 ];
 
 export const DEFAULT_TIME_LIMIT = 20;
+export const DEFAULT_REVEAL_TIME = 5;
 export const DEFAULT_POINTS = 1000;

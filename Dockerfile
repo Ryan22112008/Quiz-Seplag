@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim AS build
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && apt-get install -y --no-install-recommends openssl ca-certificates gosu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/backend
@@ -17,7 +17,7 @@ RUN npm run build
 FROM node:24-bookworm-slim AS runtime
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && apt-get install -y --no-install-recommends openssl ca-certificates gosu \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
@@ -30,6 +30,5 @@ COPY --from=build /app/backend/node_modules ./node_modules
 COPY --from=build /app/backend/dist ./dist
 COPY --from=build /app/backend/prisma ./prisma
 
-USER node
 EXPOSE 10000
-CMD ["sh", "-c", "npm run db:deploy && npm start"]
+CMD ["sh", "-c", "upload_dir=\"${UPLOADS_DIR:-/app/backend/uploads}\" && mkdir -p \"$upload_dir\" && chown node:node \"$upload_dir\" && exec gosu node sh -c 'npm run db:deploy && npm start'"]

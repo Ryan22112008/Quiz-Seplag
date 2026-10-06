@@ -26,6 +26,10 @@ export function createUploadRoutes(protectUpload?: RequestHandler): Router {
       response.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: { message: error.code === 'LIMIT_FILE_SIZE' ? 'A imagem deve ter no máximo 5 MB.' : 'Envie somente um arquivo de imagem.' } });
       return;
     }
+    if (error && typeof error === 'object' && 'code' in error && ['EACCES', 'EROFS', 'ENOSPC'].includes(String(error.code))) {
+      response.status(503).json({ error: { message: 'O armazenamento de imagens está indisponível no servidor. Tente novamente mais tarde.' } });
+      return;
+    }
     next(error);
   };
   router.use(uploadErrorHandler);
