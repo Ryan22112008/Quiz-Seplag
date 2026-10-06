@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Home, Edit2, Users, Clock, Trophy } from 'lucide-react';
 import { ButtonLink } from '@/components/ui/ButtonLink';
@@ -18,7 +18,6 @@ import { useToastStore } from '@/components/ui/useToastStore';
  */
 export function ReviewQuizPage() {
   const { quizId } = useParams<{ quizId: string }>();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { getQuizById } = useQuizStore();
   const upsertRoom = useRoomStore((state) => state.upsertRoom);
@@ -84,7 +83,7 @@ export function ReviewQuizPage() {
     <Container size="md" className="min-h-screen py-12">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center gap-4">
-          <ButtonLink to={searchParams.get('returnTo') ? '/library' : `/criar/${quizId}/perguntas`} variant="ghost" size="icon" className="shrink-0">
+          <ButtonLink to={`/criar/${quizId}/perguntas`} variant="ghost" size="icon" className="shrink-0">
             <ArrowLeft className="size-5" aria-hidden="true" />
           </ButtonLink>
           <div className="min-w-0">
@@ -166,7 +165,6 @@ export function ReviewQuizPage() {
                 Editar perguntas
               </ButtonLink>
             </div>
-            {searchParams.get('returnTo') && <ButtonLink to="/library" variant="outline">Voltar à biblioteca</ButtonLink>}
             <Button onClick={handleCreateRoom} size="lg" className="w-full sm:w-auto" disabled={creating}>
               {creating ? 'Criando sala…' : 'Criar sala'}
             </Button>

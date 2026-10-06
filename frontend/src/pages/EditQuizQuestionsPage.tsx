@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, ArrowLeft, Home, X } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
@@ -206,7 +206,6 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
 export function EditQuizQuestionsPage() {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { getQuizById, updateQuiz } = useQuizStore();
   const upsertQuiz = useQuizStore((state) => state.upsertQuiz);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
@@ -230,8 +229,7 @@ export function EditQuizQuestionsPage() {
     try {
       const saved = await api.updateQuiz(quizId, { title: quiz.title, description: quiz.description, category: quiz.category, questions: quiz.questions });
       upsertQuiz(saved);
-      const returnTo = searchParams.get('returnTo');
-      navigate(`/criar/${quizId}/revisar${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`);
+      navigate(`/criar/${quizId}/revisar`);
     } catch (error) {
       useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível salvar o quiz', description: error instanceof Error ? error.message : 'Tente novamente.' });
     } finally { setSavingQuiz(false); }
@@ -322,7 +320,7 @@ export function EditQuizQuestionsPage() {
     <Container size="md" className="min-h-screen py-12">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center gap-4">
-          <ButtonLink to={searchParams.get('returnTo') ?? '/library'} variant="ghost" size="icon" className="shrink-0">
+          <ButtonLink to="/" variant="ghost" size="icon" className="shrink-0">
             <ArrowLeft className="size-5" aria-hidden="true" />
           </ButtonLink>
           <div className="min-w-0">

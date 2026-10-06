@@ -1,5 +1,4 @@
 import type { Server } from 'node:http';
-import type { IncomingMessage } from 'node:http';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import { DomainError } from '../domain/errors.js';
 import type { GameService } from '../services/gameService.js';
@@ -7,13 +6,12 @@ import type { RoomService } from '../services/roomService.js';
 import { ProtocolError, parseCommand, type ClientCommand, type ServerEvent } from './protocol.js';
 
 type Role = 'host' | 'player';
-interface ConnectionContext { roomPin?: string; playerId?: string; role?: Role; userId?: string }
+interface ConnectionContext { roomPin?: string; playerId?: string; role?: Role }
 interface RealtimeServices {
   roomService: Pick<RoomService, 'createRoomWithHostToken' | 'getRoomByPin' | 'joinRoom' | 'leaveRoom' | 'closeRoom' | 'isValidHostToken' | 'isValidPlayerToken'>;
   gameService: Pick<GameService, 'startGame' | 'getGame' | 'startQuestion' | 'isQuestionExpired' | 'submitAnswer' | 'getRanking' | 'beginQuestionResults' | 'advanceAfterResults' | 'finishGame' | 'hasAnswered' | 'advanceIfAllAnswered'>;
-  quizService?: { canUseQuiz(id: string, ownerId: string): Promise<boolean>; getQuizById(id: string): Promise<{ ownerId?: string }> };
 }
-interface RealtimeHubDependencies { nowMs?: () => number; authenticateRequest?: (request: IncomingMessage) => Promise<string | undefined> }
+interface RealtimeHubDependencies { nowMs?: () => number }
 
 /** Owns WebSocket membership and routes commands through the existing domain services. */
 export class RealtimeHub {
@@ -27,12 +25,9 @@ export class RealtimeHub {
   private shuttingDown = false;
 
   private readonly nowMs: () => number;
-  private readonly authenticateRequest: ((request: IncomingMessage) => Promise<string | undefined>) | undefined;
-  private readonly usersByRequest = new WeakMap<IncomingMessage, string | undefined>();
 
   constructor(private readonly services: RealtimeServices, dependencies: RealtimeHubDependencies = {}) {
     this.nowMs = dependencies.nowMs ?? Date.now;
-    this.authenticateRequest = dependencies.authenticateRequest;
   }
 
   attach(httpServer: Server, path = '/realtime', allowedOrigins: readonly string[] = []): WebSocketServer {
@@ -42,13 +37,12 @@ export class RealtimeHub {
       verifyClient: (info, callback) => {
         void (async () => {
           if (info.origin && !allowedOrigins.includes(info.origin)) { callback(false, 403, 'Origem não permitida.'); return; }
-          try { this.usersByRequest.set(info.req, await this.authenticateRequest?.(info.req)); callback(true); }
-          catch { callback(false, 401, 'Não foi possível autenticar a conexão.'); }
+          callback(true);
         })();
       },
     });
     this.server = server;
-    server.on('connection', (socket, request) => this.accept(socket, this.usersByRequest.get(request)));
+    server.on('connection', (socket) => this.accept(socket));
     server.on('error', () => { /* Connection errors are reported to their socket; keep the HTTP process alive. */ });
     return server;
   }
@@ -74,9 +68,9 @@ export class RealtimeHub {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
-  private accept(socket: WebSocket, userId?: string): void {
+  private accept(socket: WebSocket): void {
     if (this.shuttingDown) { socket.close(1001, 'Servidor encerrando'); return; }
-    this.contexts.set(socket, userId ? { userId } : {});
+    this.contexts.set(socket, {});
     socket.on('message', (data) => { void this.processMessage(socket, data); });
     socket.on('close', () => this.detach(socket));
     socket.on('error', () => this.detach(socket));
@@ -94,8 +88,6 @@ export class RealtimeHub {
     switch (command.type) {
       case 'CREATE_ROOM': {
         this.requireUnbound(socket);
-        const context = this.context(socket);
-        if (this.authenticateRequest && (!context.userId || !this.services.quizService || !await this.services.quizService.canUseQuiz(command.payload.quizId, context.userId))) this.fail('FORBIDDEN', 'Somente o proprietário autenticado pode criar uma sala para este quiz.');
         const { room, hostToken } = await this.services.roomService.createRoomWithHostToken(command.payload.quizId);
         this.bind(socket, room.pin, 'host');
         this.send(socket, { type: 'ROOM_CREATED', payload: { room: toClientRoom(room), hostToken } });
@@ -124,9 +116,6 @@ export class RealtimeHub {
         } else if (context.role === 'host' && context.roomPin === room.pin) {
           role = 'host';
         } else if (command.payload.hostToken !== undefined && this.services.roomService.isValidHostToken(room.id, command.payload.hostToken)) {
-          if (this.authenticateRequest && !context.userId) this.fail('UNAUTHENTICATED', 'Entre com sua conta para conduzir esta partida.');
-          const quiz = await this.services.quizService?.getQuizById(room.quizId);
-          if (context.userId && quiz?.ownerId && quiz.ownerId !== context.userId) this.fail('FORBIDDEN', 'Somente o proprietário do quiz pode conduzir esta partida.');
           role = 'host';
         } else {
           this.fail('FORBIDDEN', 'É necessário o contexto de host ou de jogador para entrar na sala.');
@@ -384,8 +373,7 @@ export class RealtimeHub {
   }
   private bind(socket: WebSocket, roomPin: string, role: Role, playerId?: string): void {
     this.unbind(socket);
-    const userId = this.contexts.get(socket)?.userId;
-    const context: ConnectionContext = { roomPin, role, ...(playerId ? { playerId } : {}), ...(userId ? { userId } : {}) };
+    const context: ConnectionContext = { roomPin, role, ...(playerId ? { playerId } : {}) };
     this.contexts.set(socket, context);
     const group = this.socketsByRoom.get(roomPin) ?? new Set<WebSocket>();
     group.add(socket);
@@ -398,7 +386,7 @@ export class RealtimeHub {
       group?.delete(socket);
       if (group?.size === 0) this.socketsByRoom.delete(context.roomPin);
     }
-    if (this.contexts.has(socket)) this.contexts.set(socket, context?.userId ? { userId: context.userId } : {});
+    if (this.contexts.has(socket)) this.contexts.set(socket, {});
   }
   private unbindRoom(roomPin: string): void {
     for (const socket of this.socketsByRoom.get(roomPin) ?? []) this.unbind(socket);

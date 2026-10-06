@@ -1,7 +1,6 @@
 import type { Quiz } from '@/types/quiz';
 import type { Room, RoomPlayer } from '@/types/room';
 import { API_BASE_URL } from '@/config/environment';
-import { useAuthStore } from '@/stores/authStore';
 
 export interface ApiRoom { id: string; pin: string; quizId: string; status: 'WAITING' | 'STARTING' | 'IN_PROGRESS' | 'FINISHED'; players: Array<{ id: string; name: string }> }
 export interface CreatedApiRoom extends ApiRoom { hostToken: string }
@@ -9,13 +8,10 @@ export interface PublicQuestion { questionId: string; questionIndex: number; tex
 export interface PublicGame { id: string; roomId: string; roomPin: string; quizId: string; status: 'IN_PROGRESS' | 'FINISHED'; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: string | null; questionEndsAt: string | null; currentQuestion: PublicQuestion | null }
 export interface AnswerResult { accepted: true; isCorrect: boolean; points: number; totalScore: number }
 export interface ApiRankingEntry { position: number; playerId: string; playerName: string; score: number; correctAnswers?: number }
-export interface LibraryQuiz { id: string; title: string; description: string | null; category: string; questionCount: number; coverImageUrl: string | null; createdAt: string; updatedAt: string; ownerId: string | null; ownerName: string | null; isLegacy: boolean }
-export interface LibraryQuery { q?: string; category?: string; scope?: 'all' | 'mine' | 'legacy'; sort?: 'recent' | 'oldest' | 'title-asc' | 'title-desc'; offset?: number; limit?: number }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
-  const csrf = useAuthStore.getState().csrfToken ?? document.cookie.split('; ').find((item) => item.startsWith('quiz_csrf='))?.split('=').slice(1).join('=');
-  try { response = await fetch(`${API_BASE_URL}${path}`, { ...init, credentials: 'include', headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...((init?.method ?? 'GET') !== 'GET' && csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}), ...init?.headers } }); }
+  try { response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers } }); }
   catch { throw new Error('Não foi possível conectar. Confira sua internet e tente novamente.'); }
   if (!response.ok) {
     const data = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
@@ -29,15 +25,13 @@ export const api = {
     let response: Response;
     const form = new FormData();
     form.append('image', file);
-    const csrf = useAuthStore.getState().csrfToken ?? document.cookie.split('; ').find((item) => item.startsWith('quiz_csrf='))?.split('=').slice(1).join('=');
-    try { response = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', credentials: 'include', headers: csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}, body: form }); }
+    try { response = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', body: form }); }
     catch { throw new Error('Não foi possível enviar a imagem.'); }
     const data = await response.json() as { imageUrl?: string; error?: { message?: string } };
     if (!response.ok || !data.imageUrl) throw new Error(data.error?.message ?? 'Não foi possível enviar a imagem.');
     return data.imageUrl;
   },
   createQuiz: (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>) => request<Quiz>('/quizzes', { method: 'POST', body: JSON.stringify(quiz) }),
-  getQuizzes: (query: LibraryQuery = {}) => { const params = new URLSearchParams(); for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value)); return request<{ total: number; items: LibraryQuiz[] }>(`/quizzes?${params}`); },
   getQuiz: (id: string) => request<Quiz>(`/quizzes/${encodeURIComponent(id)}`),
   updateQuiz: (id: string, quiz: Pick<Quiz, 'title' | 'category' | 'questions'> & { description?: string }) => request<Quiz>(`/quizzes/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(quiz) }),
   duplicateQuiz: (id: string) => request<Quiz>(`/quizzes/${encodeURIComponent(id)}/duplicate`, { method: 'POST' }),

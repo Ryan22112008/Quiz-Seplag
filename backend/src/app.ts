@@ -4,8 +4,6 @@ import { loadConfig } from './config/env.js';
 import { DomainError } from './domain/errors.js';
 import { routes } from './routes/index.js';
 import { createUploadRoutes } from './routes/uploadRoutes.js';
-import { authService } from './routes/index.js';
-import { createOptionalAuth, requireCsrf, requireAuth } from './auth/middleware.js';
 
 const config = loadConfig();
 export const app = express();
@@ -22,9 +20,7 @@ app.use(cors({
   },
 }));
 app.use(express.json({ limit: '1mb' }));
-app.use(createOptionalAuth(authService));
-app.use(requireCsrf(config.frontendOrigins));
-app.use(createUploadRoutes(requireAuth));
+app.use(createUploadRoutes());
 app.use(routes);
 
 app.use((_request, response) => {

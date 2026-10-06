@@ -26,7 +26,6 @@ export type DomainErrorCode =
   | 'QUESTION_EXPIRED'
   | 'ANSWER_ALREADY_SUBMITTED'
   | 'INVALID_QUIZ_ID'
-  | 'INVALID_LIBRARY_QUERY'
   | 'INVALID_ROOM_PIN'
   | 'ROOM_NOT_FOUND'
   | 'INVALID_PLAYER_NAME'
@@ -38,11 +37,6 @@ export type DomainErrorCode =
   | 'ROOM_ID_CONFLICT'
   | 'ROOM_STORE_ERROR'
   | 'FORBIDDEN'
-  | 'INVALID_CREDENTIALS'
-  | 'EMAIL_ALREADY_REGISTERED'
-  | 'EMAIL_NOT_VERIFIED'
-  | 'INVALID_VERIFICATION_TOKEN'
-  | 'EMAIL_DELIVERY_FAILED';
 
 export class DomainError extends Error {
   constructor(

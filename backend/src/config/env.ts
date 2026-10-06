@@ -53,25 +53,10 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     try { databaseUrl = new URL(environment.DATABASE_URL); }
     catch { throw new Error('DATABASE_URL deve ser uma URL válida para MySQL.'); }
     if (databaseUrl.protocol !== 'mysql:') throw new Error('DATABASE_URL deve usar o provider MySQL definido no schema Prisma.');
-    for (const key of ['SESSION_SECRET', 'RESEND_API_KEY', 'EMAIL_FROM']) if (!environment[key]) throw new Error(`${key} é obrigatório em produção.`);
-    if ((environment.SESSION_SECRET?.length ?? 0) < 32) throw new Error('SESSION_SECRET deve conter pelo menos 32 caracteres.');
-    for (const key of ['FRONTEND_URL']) {
-      const url = new URL(environment[key] ?? '');
-      if (url.protocol !== 'https:') throw new Error(`${key} deve usar HTTPS em produção.`);
-    }
   }
-  const frontendUrl = environment.FRONTEND_URL ?? environment.FRONTEND_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5173';
-  try { if (new URL(frontendUrl).origin !== frontendUrl) throw new Error(); }
-  catch { throw new Error('FRONTEND_URL deve ser uma origem válida, sem caminho.'); }
-  if (nodeEnv === 'production' && !readFrontendOrigins(environment.FRONTEND_ORIGINS, nodeEnv).includes(frontendUrl)) throw new Error('FRONTEND_URL deve estar incluída em FRONTEND_ORIGINS.');
   return {
     nodeEnv: nodeEnv as AppConfig['nodeEnv'],
     port: readPort(environment.PORT),
     frontendOrigins: readFrontendOrigins(environment.FRONTEND_ORIGINS, nodeEnv),
-    sessionSecret: environment.SESSION_SECRET ?? 'development-only-session-secret-change-me',
-    frontendUrl,
-    ...(environment.RESEND_API_KEY ? { resendApiKey: environment.RESEND_API_KEY } : {}),
-    ...(environment.EMAIL_FROM ? { emailFrom: environment.EMAIL_FROM } : {}),
-    exposeVerificationUrl: nodeEnv !== 'production',
   };
 }

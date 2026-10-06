@@ -10,8 +10,6 @@ import { JoinGamePage } from './JoinGamePage';
 import { PlayPage } from './PlayPage';
 import { PlayerGamePage } from './PlayerGamePage';
 import { ReviewQuizPage } from './ReviewQuizPage';
-import { LibraryPage } from './LibraryPage';
-import { VerifyEmailPage } from './VerifyEmailPage';
 
 export {
   ComingSoonPage,
@@ -26,8 +24,4 @@ export {
   PlayPage,
   PlayerGamePage,
   ReviewQuizPage,
-  LibraryPage,
-  VerifyEmailPage,
 };
-
-export { LoginPage } from './LoginPage';
