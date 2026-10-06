@@ -18,7 +18,7 @@ export function createOptionalAuth(auth: AuthService): RequestHandler {
   return async (request, _response, next) => { try { const session = await auth.getSession(cookie(request, SESSION_COOKIE)); if (session) request.auth = session; else delete request.auth; next(); } catch (error) { next(error); } };
 }
 export const requireAuth: RequestHandler = (request, response, next) => {
-  if (!request.auth) { response.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Entre com sua conta Google para continuar.' } }); return; }
+  if (!request.auth) { response.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Entre com sua conta para continuar.' } }); return; }
   next();
 };
 export function requireCsrf(allowedOrigins: readonly string[]): RequestHandler {

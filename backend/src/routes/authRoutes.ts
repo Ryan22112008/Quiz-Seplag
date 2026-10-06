@@ -1,30 +1,31 @@
 import { Router } from 'express';
 import type { AuthService } from '../auth/authService.js';
 import { CSRF_COOKIE, requireAuth, SESSION_COOKIE } from '../auth/middleware.js';
-const OAUTH_STATE_COOKIE = 'quiz_oauth_state';
 export function createAuthRoutes(auth: AuthService) {
   const router = Router();
-  router.get('/auth/google', async (request, response, next) => {
-    try {
-      const authorization = await auth.createAuthorizationUrl(typeof request.query.returnTo === 'string' ? request.query.returnTo : '/');
-      response.cookie(OAUTH_STATE_COOKIE, authorization.state, { ...auth.clearCookieOptions(), maxAge: 10 * 60_000 });
-      response.redirect(302, authorization.url);
-    }
-    catch (error) { next(error); }
+  router.post('/auth/register', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
+    try { response.status(201).json(await auth.register(request.body?.email, request.body?.password)); } catch (error) { next(error); }
   });
-  router.get('/auth/google/callback', async (request, response) => {
-    const { code, state } = request.query;
-    const rawStateCookie = request.headers.cookie?.split(';').map((item) => item.trim()).find((item) => item.startsWith(`${OAUTH_STATE_COOKIE}=`))?.slice(OAUTH_STATE_COOKIE.length + 1);
-    let stateCookie: string | undefined;
-    try { stateCookie = rawStateCookie ? decodeURIComponent(rawStateCookie) : undefined; } catch { stateCookie = undefined; }
-    response.clearCookie(OAUTH_STATE_COOKIE, auth.clearCookieOptions());
-    if (typeof code !== 'string' || typeof state !== 'string' || !stateCookie || stateCookie !== state) { response.redirect(`${authFrontend(auth)}/login?error=google_login_failed`); return; }
+  router.post('/auth/login', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
     try {
-      const result = await auth.finishGoogleLogin(code, state);
-      response.cookie(SESSION_COOKIE, result.sessionToken, auth.cookieOptions());
-      response.cookie(CSRF_COOKIE, result.csrfToken, { ...auth.cookieOptions(), httpOnly: false });
-      response.redirect(302, new URL(result.returnTo, authFrontend(auth)).toString());
-    } catch { response.redirect(`${authFrontend(auth)}/login?error=google_login_failed`); }
+      const result = await auth.login(request.body?.email, request.body?.password);
+      setSessionCookies(response, result, auth);
+      response.set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken });
+    } catch (error) { next(error); }
+  });
+  router.post('/auth/verify-email', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
+    try {
+      const result = await auth.verifyEmail(request.body?.token);
+      setSessionCookies(response, result, auth);
+      response.set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken });
+    } catch (error) { next(error); }
+  });
+  router.post('/auth/resend-verification', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
+    try { response.status(202).json(await auth.resendVerification(request.body?.email)); } catch (error) { next(error); }
   });
   router.get('/auth/me', requireAuth, (request, response) => response.set('Cache-Control', 'no-store').json({ user: request.auth!.user, csrfToken: request.auth!.csrfToken }));
   router.post('/auth/logout', async (request, response, next) => {
@@ -37,4 +38,7 @@ export function createAuthRoutes(auth: AuthService) {
   });
   return router;
 }
-function authFrontend(auth: AuthService): string { return auth.frontendOrigin; }
+function setSessionCookies(response: import('express').Response, result: { sessionToken: string; csrfToken: string }, auth: AuthService) {
+  response.cookie(SESSION_COOKIE, result.sessionToken, auth.cookieOptions());
+  response.cookie(CSRF_COOKIE, result.csrfToken, { ...auth.cookieOptions(), httpOnly: false });
+}

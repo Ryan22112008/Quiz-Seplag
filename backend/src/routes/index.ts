@@ -19,7 +19,7 @@ import { loadConfig } from '../config/env.js';
 
 export const routes = Router();
 const config = loadConfig();
-export const authService = new AuthService(prisma, { clientId: config.googleClientId, clientSecret: config.googleClientSecret, callbackUrl: config.googleCallbackUrl, frontendOrigin: config.frontendUrl, secureCookies: config.nodeEnv === 'production', sessionSecret: config.sessionSecret });
+export const authService = new AuthService(prisma, { frontendOrigin: config.frontendUrl, allowedOrigins: config.frontendOrigins, secureCookies: config.nodeEnv === 'production', sessionSecret: config.sessionSecret, exposeVerificationUrl: config.exposeVerificationUrl, ...(config.resendApiKey ? { resendApiKey: config.resendApiKey } : {}), ...(config.emailFrom ? { emailFrom: config.emailFrom } : {}) });
 routes.use(createAuthRoutes(authService));
 
 routes.use(healthRoutes);

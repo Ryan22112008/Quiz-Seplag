@@ -16,6 +16,7 @@ import {
   PlayerGamePage,
   LoginPage,
   LibraryPage,
+  VerifyEmailPage,
 } from '@/pages';
 
 export function AppRoutes() {
@@ -23,6 +24,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<HomeEntryPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/verificar-email" element={<VerifyEmailPage />} />
       {/* Room entry flow */}
       <Route path="/join" element={<JoinGamePage />} />
       <Route path="/jogar/:pin" element={<JoinGamePage />} />

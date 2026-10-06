@@ -22,11 +22,9 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
-      - key: GOOGLE_CLIENT_ID
+      - key: RESEND_API_KEY
         sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_CALLBACK_URL
+      - key: EMAIL_FROM
         sync: false
       - key: SESSION_SECRET
         sync: false

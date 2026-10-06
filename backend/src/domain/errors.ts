@@ -37,7 +37,12 @@ export type DomainErrorCode =
   | 'ROOM_PIN_CONFLICT'
   | 'ROOM_ID_CONFLICT'
   | 'ROOM_STORE_ERROR'
-  | 'FORBIDDEN';
+  | 'FORBIDDEN'
+  | 'INVALID_CREDENTIALS'
+  | 'EMAIL_ALREADY_REGISTERED'
+  | 'EMAIL_NOT_VERIFIED'
+  | 'INVALID_VERIFICATION_TOKEN'
+  | 'EMAIL_DELIVERY_FAILED';
 
 export class DomainError extends Error {
   constructor(

@@ -23,14 +23,29 @@ model Quiz {
 
 model User {
   id        String         @id @default(cuid())
-  googleId  String         @unique @db.VarChar(191)
+  googleId  String?        @unique @db.VarChar(191)
   email     String         @unique @db.VarChar(191)
   name      String         @db.VarChar(191)
   avatarUrl String?        @db.VarChar(500)
+  passwordHash String?     @db.VarChar(255)
+  emailVerifiedAt DateTime?
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   quizzes   Quiz[]
   sessions  AuthSession[]
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+model EmailVerificationToken {
+  id                  String   @id @db.Char(64)
+  userId              String
+  pendingPasswordHash String?  @db.VarChar(255)
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model AuthSession {

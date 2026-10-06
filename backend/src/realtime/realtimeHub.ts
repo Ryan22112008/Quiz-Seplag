@@ -124,7 +124,7 @@ export class RealtimeHub {
         } else if (context.role === 'host' && context.roomPin === room.pin) {
           role = 'host';
         } else if (command.payload.hostToken !== undefined && this.services.roomService.isValidHostToken(room.id, command.payload.hostToken)) {
-          if (this.authenticateRequest && !context.userId) this.fail('UNAUTHENTICATED', 'Entre com sua conta Google para conduzir esta partida.');
+          if (this.authenticateRequest && !context.userId) this.fail('UNAUTHENTICATED', 'Entre com sua conta para conduzir esta partida.');
           const quiz = await this.services.quizService?.getQuizById(room.quizId);
           if (context.userId && quiz?.ownerId && quiz.ownerId !== context.userId) this.fail('FORBIDDEN', 'Somente o proprietário do quiz pode conduzir esta partida.');
           role = 'host';
