@@ -24,8 +24,8 @@ export type ServerEvent =
   | { type: 'ANSWER_SUBMITTED'; payload: { roomPin: string; playerId: string } }
   | { type: 'QUESTION_ENDED'; payload: { roomPin: string; timedOut: boolean } }
   | { type: 'QUESTION_RESULTS'; payload: { roomPin: string; questionId: string; ranking: PublicRankingEntry[]; resultsStartedAt: string; resultsEndsAt: string } }
-  | { type: 'RANKING_UPDATED'; payload: { roomPin: string; ranking: Array<{ position: number; playerId: string; playerName: string; score: number; correctAnswers: number }> } }
-  | { type: 'GAME_FINISHED'; payload: { roomPin: string; ranking: Array<{ position: number; playerId: string; playerName: string; score: number; correctAnswers: number }> } }
+  | { type: 'RANKING_UPDATED'; payload: { roomPin: string; ranking: PublicRankingEntry[] } }
+  | { type: 'GAME_FINISHED'; payload: { roomPin: string; ranking: PublicRankingEntry[] } }
   | { type: 'ROOM_CLOSED'; payload: { roomPin: string } }
   | { type: 'REALTIME_ERROR'; payload: { code: string; message: string } };
 

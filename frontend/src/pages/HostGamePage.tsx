@@ -65,6 +65,12 @@ export function HostGamePage() {
   if (!game) return <Container size="md" className="flex min-h-screen items-center justify-center"><div className="flex flex-col items-center gap-3"><Spinner label="Carregando resultado" /><p className="type-body text-neutral-600">Carregando resultado...</p></div></Container>;
 
   const sourceQuestion = quiz.questions[game.currentQuestionIndex];
+  const finalStats = game.ranking.reduce((totals, player) => ({
+    totalAnswers: totals.totalAnswers + (player.answeredQuestions ?? 0),
+    correctAnswers: totals.correctAnswers + (player.correctAnswers ?? 0),
+    highestScore: Math.max(totals.highestScore, player.score),
+  }), { totalAnswers: 0, correctAnswers: 0, highestScore: 0 });
+  const accuracyRate = finalStats.totalAnswers === 0 ? 0 : Math.round((finalStats.correctAnswers / finalStats.totalAnswers) * 100);
   const question = game.currentQuestion && sourceQuestion ? { ...sourceQuestion, id: game.currentQuestion.questionId, question: game.currentQuestion.text, options: game.currentQuestion.options } : undefined;
   const lastQuestion = game.currentQuestionIndex === game.totalQuestions - 1;
   const phase = game.status;
@@ -83,7 +89,6 @@ export function HostGamePage() {
   if (game.status === 'finished') {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <header className="border-b border-border bg-surface"><Container size="xl" className="flex min-h-16 items-center justify-between gap-3"><Logo /><GameStatus status="finished" /></Container></header>
         <main><Container size="xl" className="py-8 sm:py-10">
           <div ref={phaseRef} tabIndex={-1} className="mb-6 text-center focus:outline-none"><h1 className="type-h1 text-neutral-900">Partida encerrada</h1><p className="type-body mt-2 text-neutral-600">Resultado final do quiz {quiz.title}</p></div>
           {!game.finalPresentation && game.ranking.length === 0 && <div className="mb-6 flex flex-col items-center gap-2" role="status" aria-live="polite"><span className="type-label text-neutral-700">Aguardando resultado...</span><p className="type-caption text-neutral-500">Os dados finais ainda não foram recebidos.</p></div>}
@@ -91,10 +96,10 @@ export function HostGamePage() {
           <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
             <Card variant="elevated"><CardHeader><CardTitle>Estatísticas da partida</CardTitle></CardHeader><CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <StatCard label="Total de jogadores" value={room.players.length} />
-              <StatCard label="Total de respostas" value={game.finalStatistics?.totalAnswers ?? '—'} />
+              <StatCard label="Total de respostas" value={finalStats.totalAnswers} />
               <StatCard label="Perguntas" value={quiz.questions.length} />
-              <StatCard label="Taxa de acerto" value={game.finalStatistics?.accuracyRate !== undefined ? `${game.finalStatistics.accuracyRate}%` : '—'} />
-              <StatCard label="Pontuação máxima" value={game.finalStatistics?.highestScore ?? '—'} />
+              <StatCard label="Taxa de acerto" value={`${accuracyRate}%`} />
+              <StatCard label="Pontuação máxima" value={finalStats.highestScore.toLocaleString('pt-BR')} />
             </CardContent></Card>
             <Card variant="elevated"><CardHeader><CardTitle>Ranking final</CardTitle></CardHeader><CardContent><RankingList entries={game.ranking} /></CardContent></Card>
           </div>

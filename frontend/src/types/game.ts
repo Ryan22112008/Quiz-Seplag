@@ -12,6 +12,7 @@ export interface RankingEntry {
   playerId: string;
   playerName: string;
   score: number;
+  answeredQuestions?: number;
   correctAnswers?: number;
 }
 

@@ -39,7 +39,7 @@ export function FinalPodium({ entries, animate = false }: FinalPodiumProps) {
           const style = placeStyle[position]!;
           const delay = delayFor(position);
           return (
-            <article key={entry.playerId} role="listitem" aria-label={`${position}º lugar: ${entry.playerName}, ${entry.score.toLocaleString('pt-BR')} pontos`} className={`relative flex min-w-0 flex-col items-center justify-end text-center ${animate ? 'podium-reveal' : ''}`} style={{ gridColumn: position === 1 ? 2 : position === 2 ? 1 : 3, ...(animate ? { animationDelay: `${delay}ms` } : {}) }}>
+            <article key={entry.playerId} role="listitem" aria-label={`${position}º lugar: ${entry.playerName}, ${entry.score.toLocaleString('pt-BR')} pontos`} className={`relative flex min-w-0 flex-col items-center justify-end text-center ${animate ? 'podium-reveal' : ''}`} style={{ gridColumn: position === 1 ? 2 : position === 2 ? 1 : 3, gridRow: 1, ...(animate ? { animationDelay: `${delay}ms` } : {}) }}>
               {position === 1 && animate && <div className="podium-confetti" aria-hidden="true">{Array.from({ length: 8 }, (_, index) => <i key={index} />)}</div>}
               <span className={`relative z-10 mb-2 flex size-9 items-center justify-center rounded-full text-sm font-black ring-4 sm:size-11 sm:text-base ${style.medal} ${position === 1 && animate ? 'podium-winner-glow' : ''}`}>{position}º</span>
               <Avatar name={entry.playerName} size={position === 1 ? 'lg' : 'md'} className={`relative z-10 mb-2 ring-2 ring-white/80 ${position === 1 ? 'sm:size-16' : ''}`} />
