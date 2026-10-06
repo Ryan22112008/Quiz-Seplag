@@ -9,6 +9,8 @@ export interface PublicQuestion { questionId: string; questionIndex: number; tex
 export interface PublicGame { id: string; roomId: string; roomPin: string; quizId: string; status: 'IN_PROGRESS' | 'FINISHED'; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: string | null; questionEndsAt: string | null; currentQuestion: PublicQuestion | null }
 export interface AnswerResult { accepted: true; isCorrect: boolean; points: number; totalScore: number }
 export interface ApiRankingEntry { position: number; playerId: string; playerName: string; score: number; correctAnswers?: number }
+export interface LibraryQuiz { id: string; title: string; description: string | null; category: string; questionCount: number; coverImageUrl: string | null; createdAt: string; updatedAt: string; ownerId: string | null; ownerName: string | null; isLegacy: boolean }
+export interface LibraryQuery { q?: string; category?: string; scope?: 'all' | 'mine' | 'legacy'; sort?: 'recent' | 'oldest' | 'title-asc' | 'title-desc'; offset?: number; limit?: number }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
@@ -35,7 +37,11 @@ export const api = {
     return data.imageUrl;
   },
   createQuiz: (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>) => request<Quiz>('/quizzes', { method: 'POST', body: JSON.stringify(quiz) }),
+  getQuizzes: (query: LibraryQuery = {}) => { const params = new URLSearchParams(); for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value)); return request<{ total: number; items: LibraryQuiz[] }>(`/quizzes?${params}`); },
   getQuiz: (id: string) => request<Quiz>(`/quizzes/${encodeURIComponent(id)}`),
+  updateQuiz: (id: string, quiz: Pick<Quiz, 'title' | 'category' | 'questions'> & { description?: string }) => request<Quiz>(`/quizzes/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(quiz) }),
+  duplicateQuiz: (id: string) => request<Quiz>(`/quizzes/${encodeURIComponent(id)}/duplicate`, { method: 'POST' }),
+  deleteQuiz: (id: string) => request<void>(`/quizzes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   createRoom: (quizId: string) => request<CreatedApiRoom>('/rooms', { method: 'POST', body: JSON.stringify({ quizId }) }),
   getRoom: (pin: string) => request<ApiRoom>(`/rooms/${encodeURIComponent(pin)}`),
   getHostQuiz: (pin: string, hostToken: string) => request<Quiz>(`/rooms/${encodeURIComponent(pin)}/quiz`, { headers: { 'X-Host-Token': hostToken } }),

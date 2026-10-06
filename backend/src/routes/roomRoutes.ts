@@ -8,7 +8,7 @@ export function createRoomRoutes(roomController: RoomController, quizService?: Q
   router.post('/rooms', requireAuth, async (request, response, next) => {
     try {
       const quizId = (request.body as { quizId?: unknown })?.quizId;
-      if (typeof quizId !== 'string' || !quizService || !await quizService.ownsQuiz(quizId, request.auth!.user.id)) { response.status(403).json({ error: { code: 'FORBIDDEN', message: 'Você não tem autorização para usar este quiz.' } }); return; }
+      if (typeof quizId !== 'string' || !quizService || !await quizService.canUseQuiz(quizId, request.auth!.user.id)) { response.status(403).json({ error: { code: 'FORBIDDEN', message: 'Você não tem autorização para usar este quiz.' } }); return; }
       roomController.createRoom(request as Parameters<typeof roomController.createRoom>[0], response, next);
     } catch (error) { next(error); }
   });

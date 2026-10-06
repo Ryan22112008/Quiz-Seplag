@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { ButtonLink } from '@/components/ui/ButtonLink';
@@ -10,8 +11,10 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { useQuizStore } from '@/stores/quizStore';
-import { QUIZ_CATEGORIES, type Quiz } from '@/types/quiz';
+import { QUIZ_CATEGORIES } from '@/types/quiz';
 import { baseTextSchema } from '@/lib/validators';
+import { api } from '@/services/api/client';
+import { useToastStore } from '@/components/ui/useToastStore';
 
 const createQuizSchema = z.object({
   title: baseTextSchema
@@ -29,7 +32,8 @@ type CreateQuizValues = z.infer<typeof createQuizSchema>;
  */
 export function CreateQuizPage() {
   const navigate = useNavigate();
-  const { createQuiz } = useQuizStore();
+  const upsertQuiz = useQuizStore((state) => state.upsertQuiz);
+  const [saving, setSaving] = useState(false);
 
   const {
     register,
@@ -45,22 +49,16 @@ export function CreateQuizPage() {
     },
   });
 
-  const onValidSubmit = (values: CreateQuizValues) => {
-    const quizId = `quiz-${Date.now()}`;
-    const now = new Date().toISOString();
-
-    const newQuiz: Quiz = {
-      id: quizId,
-      title: values.title.trim(),
-      description: values.description?.trim(),
-      category: values.category,
-      questions: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    createQuiz(newQuiz);
-    navigate(`/criar/${quizId}/perguntas`);
+  const onValidSubmit = async (values: CreateQuizValues) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const quiz = await api.createQuiz({ title: values.title.trim(), description: values.description?.trim(), category: values.category, questions: [] });
+      upsertQuiz(quiz);
+      navigate(`/criar/${quiz.id}/perguntas`);
+    } catch (error) {
+      useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível criar o quiz', description: error instanceof Error ? error.message : 'Tente novamente.' });
+    } finally { setSaving(false); }
   };
 
   return (
@@ -116,8 +114,8 @@ export function CreateQuizPage() {
                 <ButtonLink to="/" variant="outline" size="lg">
                   Cancelar
                 </ButtonLink>
-                <Button type="submit" size="lg">
-                  Continuar
+                <Button type="submit" size="lg" disabled={saving}>
+                  {saving ? 'Salvando…' : 'Continuar'}
                 </Button>
               </div>
             </form>

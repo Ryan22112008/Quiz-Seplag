@@ -11,7 +11,7 @@ interface ConnectionContext { roomPin?: string; playerId?: string; role?: Role; 
 interface RealtimeServices {
   roomService: Pick<RoomService, 'createRoomWithHostToken' | 'getRoomByPin' | 'joinRoom' | 'leaveRoom' | 'closeRoom' | 'isValidHostToken' | 'isValidPlayerToken'>;
   gameService: Pick<GameService, 'startGame' | 'getGame' | 'startQuestion' | 'isQuestionExpired' | 'submitAnswer' | 'getRanking' | 'beginQuestionResults' | 'advanceAfterResults' | 'finishGame' | 'hasAnswered' | 'advanceIfAllAnswered'>;
-  quizService?: { ownsQuiz(id: string, ownerId: string): Promise<boolean>; getQuizById(id: string): Promise<{ ownerId?: string }> };
+  quizService?: { canUseQuiz(id: string, ownerId: string): Promise<boolean>; getQuizById(id: string): Promise<{ ownerId?: string }> };
 }
 interface RealtimeHubDependencies { nowMs?: () => number; authenticateRequest?: (request: IncomingMessage) => Promise<string | undefined> }
 
@@ -95,7 +95,7 @@ export class RealtimeHub {
       case 'CREATE_ROOM': {
         this.requireUnbound(socket);
         const context = this.context(socket);
-        if (this.authenticateRequest && (!context.userId || !this.services.quizService || !await this.services.quizService.ownsQuiz(command.payload.quizId, context.userId))) this.fail('FORBIDDEN', 'Somente o proprietário autenticado pode criar uma sala para este quiz.');
+        if (this.authenticateRequest && (!context.userId || !this.services.quizService || !await this.services.quizService.canUseQuiz(command.payload.quizId, context.userId))) this.fail('FORBIDDEN', 'Somente o proprietário autenticado pode criar uma sala para este quiz.');
         const { room, hostToken } = await this.services.roomService.createRoomWithHostToken(command.payload.quizId);
         this.bind(socket, room.pin, 'host');
         this.send(socket, { type: 'ROOM_CREATED', payload: { room: toClientRoom(room), hostToken } });

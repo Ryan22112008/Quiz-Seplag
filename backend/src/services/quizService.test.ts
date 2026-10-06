@@ -34,6 +34,9 @@ describe('QuizService', () => {
     await assert.rejects(() => service.createQuiz({ ...payload(), ownerId: 'user-forjado' }, 'user-42'), (error) => error instanceof DomainError && error.code === 'INVALID_QUIZ');
     assert.equal(await service.ownsQuiz(created.id, 'user-42'), true);
     assert.equal(await service.ownsQuiz(created.id, 'other-user'), false);
+    const legacy = await service.createQuiz(payload());
+    assert.equal(await service.canUseQuiz(legacy.id, 'any-authenticated-user'), true);
+    assert.deepEqual((await service.listQuizzesByOwner('user-42')).map(({ id }) => id), [created.id, legacy.id]);
   });
   it('rejeita dados inválidos, inclusive alternativa correta ausente', async () => {
     const service = setup();
@@ -80,5 +83,51 @@ describe('QuizService', () => {
   });
   it('retorna erro consistente para quiz inexistente', async () => {
     await assert.rejects(() => setup().getQuizById('missing'), (e) => e instanceof DomainError && e.code === 'QUIZ_NOT_FOUND' && e.statusCode === 404);
+  });
+  it('busca, filtra, ordena e pagina apenas quizzes visíveis ao usuário', async () => {
+    const service = setup();
+    const beta = await service.createQuiz({ ...payload(), title: 'Beta Geografia' }, 'user-a');
+    await service.createQuiz({ ...payload(), title: 'Alfa História', category: 'historia' }, 'user-a');
+    await service.createQuiz({ ...payload(), title: 'Quiz privado de outra pessoa' }, 'user-b');
+    const legacy = await service.createQuiz({ ...payload(), title: 'Geografia legado' });
+    const result = await service.listLibrary('user-a', { search: 'geografia', scope: 'all', sort: 'title-asc', offset: 0, limit: 10 });
+    assert.equal(result.total, 2);
+    assert.deepEqual(result.items.map((item) => item.title), ['Beta Geografia', 'Geografia legado']);
+    assert.equal(result.items[1]?.isLegacy, true);
+    assert.equal(result.items[0]?.questionCount, 1);
+    const mine = await service.listLibrary('user-a', { scope: 'mine', sort: 'title-asc', offset: 0, limit: 10 });
+    assert.equal(mine.total, 2);
+    assert.equal(mine.items.some((item) => item.id === legacy.id), false);
+    assert.equal(mine.items.some((item) => item.id === beta.id), true);
+    const noResults = await service.listLibrary('user-a', { search: 'inexistente', scope: 'all', sort: 'recent', offset: 0, limit: 10 });
+    assert.deepEqual(noResults, { total: 0, items: [] });
+  });
+  it('permite editar e excluir apenas o quiz próprio', async () => {
+    const service = setup();
+    const quiz = await service.createQuiz(payload(), 'user-a');
+    const changed = await service.updateQuiz(quiz.id, { title: 'Título atualizado', description: quiz.description, category: quiz.category, questions: quiz.questions }, 'user-a');
+    assert.equal(changed.title, 'Título atualizado');
+    assert.equal(changed.ownerId, 'user-a');
+    await assert.rejects(() => service.updateQuiz(quiz.id, { title: 'Alteração alheia', category: quiz.category, questions: quiz.questions }, 'user-b'), (error) => error instanceof DomainError && error.code === 'FORBIDDEN');
+    const legacy = await service.createQuiz(payload());
+    await assert.rejects(() => service.updateQuiz(legacy.id, { title: 'Alteração legada', category: legacy.category, questions: legacy.questions }, 'user-a'), (error) => error instanceof DomainError && error.code === 'FORBIDDEN');
+    await assert.rejects(() => service.deleteQuiz(quiz.id, 'user-b'), (error) => error instanceof DomainError && error.code === 'FORBIDDEN');
+    await assert.rejects(() => service.deleteQuiz(legacy.id, 'user-a'), (error) => error instanceof DomainError && error.code === 'FORBIDDEN');
+    await service.deleteQuiz(quiz.id, 'user-a');
+    await assert.rejects(() => service.getQuizById(quiz.id), (error) => error instanceof DomainError && error.code === 'QUIZ_NOT_FOUND');
+  });
+  it('duplica quizzes próprios e legados com novos identificadores e propriedade atual', async () => {
+    const service = setup();
+    const legacy = await service.createQuiz(payload());
+    const duplicate = await service.duplicateQuiz(legacy.id, 'user-a');
+    assert.equal(duplicate.ownerId, 'user-a');
+    assert.equal(duplicate.title, `${legacy.title} (cópia)`);
+    assert.notEqual(duplicate.id, legacy.id);
+    assert.notEqual(duplicate.questions[0]?.id, legacy.questions[0]?.id);
+    assert.notEqual(duplicate.questions[0]?.options[0]?.id, legacy.questions[0]?.options[0]?.id);
+    assert.equal(duplicate.questions[0]?.correctOptionId, duplicate.questions[0]?.options[2]?.id);
+    const owned = await service.createQuiz(payload(), 'user-a');
+    assert.equal((await service.duplicateQuiz(owned.id, 'user-a')).ownerId, 'user-a');
+    await assert.rejects(() => service.duplicateQuiz(owned.id, 'user-b'), (error) => error instanceof DomainError && error.code === 'FORBIDDEN');
   });
 });

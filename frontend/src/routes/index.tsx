@@ -15,6 +15,7 @@ import {
   ReviewQuizPage,
   PlayerGamePage,
   LoginPage,
+  LibraryPage,
 } from '@/pages';
 
 export function AppRoutes() {
@@ -30,6 +31,7 @@ export function AppRoutes() {
       {/* Quiz creation flow */}
       <Route element={<RequireAuth />}>
         <Route path="/design-system" element={<DesignSystemPreview />} />
+        <Route path="/library" element={<LibraryPage />} />
         <Route path="/criar" element={<CreateQuizPage />} />
         <Route path="/criar/:quizId/perguntas" element={<EditQuizQuestionsPage />} />
         <Route path="/criar/:quizId/revisar" element={<ReviewQuizPage />} />

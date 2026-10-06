@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, ArrowLeft, Home, X } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
@@ -22,6 +22,8 @@ import {
 } from '@/types/quiz';
 import { ImagePicker } from '@/components/quiz/ImagePicker';
 import { imageSource } from '@/lib/imageSource';
+import { api } from '@/services/api/client';
+import { useToastStore } from '@/components/ui/useToastStore';
 
 const questionOptionSchema = z.object({
   id: z.string(),
@@ -203,14 +205,44 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
  */
 export function EditQuizQuestionsPage() {
   const { quizId } = useParams<{ quizId: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { getQuizById, updateQuiz } = useQuizStore();
+  const upsertQuiz = useQuizStore((state) => state.upsertQuiz);
+  const [loadingQuiz, setLoadingQuiz] = useState(false);
+  const [savingQuiz, setSavingQuiz] = useState(false);
 
   const quiz = quizId ? getQuizById(quizId) : undefined;
+
+  useEffect(() => {
+    if (!quizId || quiz) return;
+    let active = true;
+    setLoadingQuiz(true);
+    api.getQuiz(quizId).then((loaded) => { if (active) upsertQuiz(loaded); })
+      .catch((error: unknown) => { if (active) useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível carregar o quiz', description: error instanceof Error ? error.message : 'Tente novamente.' }); })
+      .finally(() => { if (active) setLoadingQuiz(false); });
+    return () => { active = false; };
+  }, [quizId, quiz, upsertQuiz]);
+
+  const saveAndContinue = async () => {
+    if (!quizId || !quiz || savingQuiz) return;
+    setSavingQuiz(true);
+    try {
+      const saved = await api.updateQuiz(quizId, { title: quiz.title, description: quiz.description, category: quiz.category, questions: quiz.questions });
+      upsertQuiz(saved);
+      const returnTo = searchParams.get('returnTo');
+      navigate(`/criar/${quizId}/revisar${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`);
+    } catch (error) {
+      useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível salvar o quiz', description: error instanceof Error ? error.message : 'Tente novamente.' });
+    } finally { setSavingQuiz(false); }
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | undefined>();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState<string | undefined>();
+
+  if (!quiz && loadingQuiz) return <Container size="md" className="min-h-screen py-12"><p role="status" className="text-center text-neutral-600">Carregando quiz…</p></Container>;
 
   if (!quiz) {
     return (
@@ -290,7 +322,7 @@ export function EditQuizQuestionsPage() {
     <Container size="md" className="min-h-screen py-12">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center gap-4">
-          <ButtonLink to="/criar" variant="ghost" size="icon" className="shrink-0">
+          <ButtonLink to={searchParams.get('returnTo') ?? '/library'} variant="ghost" size="icon" className="shrink-0">
             <ArrowLeft className="size-5" aria-hidden="true" />
           </ButtonLink>
           <div className="min-w-0">
@@ -382,15 +414,9 @@ export function EditQuizQuestionsPage() {
         )}
 
         <div className="mt-8 flex justify-end">
-          {quiz.questions.length === 0 ? (
-            <Button size="lg" disabled>
-              Continuar
-            </Button>
-          ) : (
-            <ButtonLink to={`/criar/${quizId}/revisar`} size="lg">
-              Continuar
-            </ButtonLink>
-          )}
+          <Button size="lg" disabled={quiz.questions.length === 0 || savingQuiz} onClick={() => void saveAndContinue()}>
+            {savingQuiz ? 'Salvando…' : 'Continuar'}
+          </Button>
         </div>
       </div>
 

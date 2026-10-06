@@ -1,5 +1,5 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Home, Edit2, Users, Clock, Trophy } from 'lucide-react';
 import { ButtonLink } from '@/components/ui/ButtonLink';
 import { Button } from '@/components/ui/Button';
@@ -18,13 +18,27 @@ import { useToastStore } from '@/components/ui/useToastStore';
  */
 export function ReviewQuizPage() {
   const { quizId } = useParams<{ quizId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { getQuizById } = useQuizStore();
   const upsertRoom = useRoomStore((state) => state.upsertRoom);
   const upsertQuiz = useQuizStore((state) => state.upsertQuiz);
   const [creating, setCreating] = useState(false);
+  const [loadingQuiz, setLoadingQuiz] = useState(false);
 
   const quiz = quizId ? getQuizById(quizId) : undefined;
+
+  useEffect(() => {
+    if (!quizId || quiz) return;
+    let active = true;
+    setLoadingQuiz(true);
+    api.getQuiz(quizId).then((loaded) => { if (active) upsertQuiz(loaded); })
+      .catch((error: unknown) => { if (active) useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível carregar o quiz', description: error instanceof Error ? error.message : 'Tente novamente.' }); })
+      .finally(() => { if (active) setLoadingQuiz(false); });
+    return () => { active = false; };
+  }, [quizId, quiz, upsertQuiz]);
+
+  if (!quiz && loadingQuiz) return <Container size="md" className="min-h-screen py-12"><p role="status" className="text-center text-neutral-600">Carregando quiz…</p></Container>;
 
   if (!quiz) {
     return (
@@ -58,14 +72,9 @@ export function ReviewQuizPage() {
     if (!quizId || !getQuizById(quizId) || creating) return;
     setCreating(true);
     try {
-      const savedQuiz = await api.createQuiz({ title: quiz.title, description: quiz.description, category: quiz.category, questions: quiz.questions });
-      // Keep the draft addressable while this review screen remains mounted.
-      // The server assigns a different ID, so replacing the draft here briefly
-      // makes getQuizById(quizId) return undefined before navigation completes.
-      upsertQuiz(savedQuiz);
-      const serverRoom = await api.createRoom(savedQuiz.id);
+      const serverRoom = await api.createRoom(quizId);
       upsertRoom(toFrontendRoom(serverRoom));
-      navigate(`/criar/${savedQuiz.id}/sala`);
+      navigate(`/criar/${quizId}/sala`);
     } catch (error) {
       useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível criar a sala', description: error instanceof Error ? error.message : 'Tente novamente.' });
     } finally { setCreating(false); }
@@ -75,7 +84,7 @@ export function ReviewQuizPage() {
     <Container size="md" className="min-h-screen py-12">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center gap-4">
-          <ButtonLink to={`/criar/${quizId}/perguntas`} variant="ghost" size="icon" className="shrink-0">
+          <ButtonLink to={searchParams.get('returnTo') ? '/library' : `/criar/${quizId}/perguntas`} variant="ghost" size="icon" className="shrink-0">
             <ArrowLeft className="size-5" aria-hidden="true" />
           </ButtonLink>
           <div className="min-w-0">
@@ -157,6 +166,7 @@ export function ReviewQuizPage() {
                 Editar perguntas
               </ButtonLink>
             </div>
+            {searchParams.get('returnTo') && <ButtonLink to="/library" variant="outline">Voltar à biblioteca</ButtonLink>}
             <Button onClick={handleCreateRoom} size="lg" className="w-full sm:w-auto" disabled={creating}>
               {creating ? 'Criando sala…' : 'Criar sala'}
             </Button>

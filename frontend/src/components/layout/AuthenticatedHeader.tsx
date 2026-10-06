@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Logo } from './Logo';
 import { useAuthStore } from '@/stores/authStore';
@@ -11,6 +11,7 @@ export function AuthenticatedHeader() {
   return <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur">
     <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
       <Logo />
+      <Link to="/library" className="mr-auto ml-5 text-sm font-medium text-neutral-700 hover:text-primary-700 focus-visible:outline-2 focus-visible:outline-primary-500">Biblioteca</Link>
       {user && <div className="flex min-w-0 items-center gap-2">
         {user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-8 rounded-full" /> : <span className="grid size-8 place-items-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">{user.name.slice(0, 1).toUpperCase()}</span>}
         <span className="hidden max-w-48 truncate text-sm text-neutral-700 sm:inline" title={user.email}>{user.name}</span>
