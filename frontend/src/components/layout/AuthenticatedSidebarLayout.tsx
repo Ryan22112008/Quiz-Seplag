@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { BookOpen, ChartNoAxesColumn, Compass, Home, LogOut, Menu, X, Plus } from 'lucide-react';
+import { BookOpen, ChartNoAxesColumn, Home, LogOut, Menu, X, Plus } from 'lucide-react';
 import { NavLink as RouterNavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 import { Button } from '@/components/ui/Button';
@@ -7,7 +7,6 @@ import { useAuthStore } from '@/stores/authStore';
 
 const navigation = [
   { label: 'Início', to: '/', Icon: Home, end: true },
-  { label: 'Descobrir', to: '/descobrir', Icon: Compass },
   { label: 'Biblioteca', to: '/biblioteca', Icon: BookOpen },
   { label: 'Relatórios', to: '/relatorios', Icon: ChartNoAxesColumn },
   { label: 'Criar quiz', to: '/criar', Icon: Plus },
