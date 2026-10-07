@@ -24,11 +24,13 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<HomeEntryPage />} />
       <Route path="/login" element={<LoginPage />} />
-      {/* Room entry flow */}
-      <Route path="/join" element={<JoinGamePage />} />
-      <Route path="/jogar/:pin" element={<JoinGamePage />} />
-      <Route path="/jogar/:pin/aguardando" element={<GameLobbyPage />} />
-      <Route path="/jogar/:pin/partida" element={<PlayerGamePage />} />
+      {/* Todas as formas de entrada na partida exigem uma sessão autenticada. */}
+      <Route element={<RequirePlayerAuth />}>
+        <Route path="/join" element={<JoinGamePage />} />
+        <Route path="/jogar/:pin" element={<JoinGamePage />} />
+        <Route path="/jogar/:pin/aguardando" element={<GameLobbyPage />} />
+        <Route path="/jogar/:pin/partida" element={<PlayerGamePage />} />
+      </Route>
       {/* Quiz creation flow */}
       <Route element={<RequireAuth />}>
         <Route path="/design-system" element={<DesignSystemPreview />} />
@@ -58,9 +60,21 @@ export function AppRoutes() {
 function HomeEntryPage() {
   const [searchParams] = useSearchParams();
   const status = useAuthStore((state) => state.status);
-  if (searchParams.has('pin')) return <JoinGamePage />;
+  if (searchParams.has('pin')) {
+    if (status === 'loading') return <main className="grid min-h-screen place-items-center text-neutral-600" role="status">Verificando sua sessão…</main>;
+    if (status === 'unauthenticated') return <Navigate to={`/login?returnTo=${encodeURIComponent(`/?${searchParams.toString()}`)}`} replace />;
+    return <JoinGamePage />;
+  }
   if (status === 'authenticated') return <AuthenticatedSidebarLayout><HomePage showHeader={false} /></AuthenticatedSidebarLayout>;
   return <HomePage />;
+}
+
+function RequirePlayerAuth() {
+  const status = useAuthStore((state) => state.status);
+  const location = useLocation();
+  if (status === 'loading') return <main className="grid min-h-screen place-items-center text-neutral-600" role="status">Verificando sua sessão…</main>;
+  if (status === 'unauthenticated') return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  return <Outlet />;
 }
 
 function RequireAuth() {

@@ -12,6 +12,7 @@ export interface GameReportQuestion {
 export interface GameReportParticipant {
   id: string;
   name: string;
+  email?: string;
   avatarCharacterId?: string;
   avatarAccessoryId?: string;
   position: number;

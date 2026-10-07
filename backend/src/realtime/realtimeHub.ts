@@ -1,4 +1,4 @@
-import type { Server } from 'node:http';
+import type { IncomingMessage, Server } from 'node:http';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import { DomainError } from '../domain/errors.js';
 import type { GameService } from '../services/gameService.js';
@@ -6,12 +6,14 @@ import type { RoomService } from '../services/roomService.js';
 import { ProtocolError, parseCommand, type ClientCommand, type ServerEvent } from './protocol.js';
 
 type Role = 'host' | 'player';
-interface ConnectionContext { roomPin?: string; playerId?: string; role?: Role }
+interface RealtimeIdentity { id: string; email: string }
+interface AuthenticatedUpgradeRequest extends IncomingMessage { quizUser?: RealtimeIdentity }
+interface ConnectionContext { roomPin?: string; playerId?: string; role?: Role; user?: RealtimeIdentity }
 interface RealtimeServices {
   roomService: Pick<RoomService, 'createRoomWithHostToken' | 'getRoomByPin' | 'joinRoom' | 'leaveRoom' | 'closeRoom' | 'isValidHostToken' | 'isValidPlayerToken'>;
   gameService: Pick<GameService, 'startGame' | 'getGame' | 'startQuestion' | 'isQuestionExpired' | 'submitAnswer' | 'getRanking' | 'beginQuestionResults' | 'advanceAfterResults' | 'finishGame' | 'hasAnswered' | 'advanceIfAllAnswered'>;
 }
-interface RealtimeHubDependencies { nowMs?: () => number }
+interface RealtimeHubDependencies { nowMs?: () => number; authenticate?: (cookie?: string) => Promise<RealtimeIdentity | null> }
 
 /** Owns WebSocket membership and routes commands through the existing domain services. */
 export class RealtimeHub {
@@ -25,9 +27,11 @@ export class RealtimeHub {
   private shuttingDown = false;
 
   private readonly nowMs: () => number;
+  private readonly authenticate?: RealtimeHubDependencies['authenticate'];
 
   constructor(private readonly services: RealtimeServices, dependencies: RealtimeHubDependencies = {}) {
     this.nowMs = dependencies.nowMs ?? Date.now;
+    this.authenticate = dependencies.authenticate;
   }
 
   attach(httpServer: Server, path = '/realtime', allowedOrigins: readonly string[] = []): WebSocketServer {
@@ -37,12 +41,17 @@ export class RealtimeHub {
       verifyClient: (info, callback) => {
         void (async () => {
           if (info.origin && !allowedOrigins.includes(info.origin)) { callback(false, 403, 'Origem não permitida.'); return; }
+          if (this.authenticate) {
+            const identity = await this.authenticate(info.req.headers.cookie);
+            if (!identity) { callback(false, 401, 'Entre com sua conta para participar da partida.'); return; }
+            (info.req as AuthenticatedUpgradeRequest).quizUser = identity;
+          }
           callback(true);
-        })();
+        })().catch(() => callback(false, 503, 'Não foi possível validar sua sessão.'));
       },
     });
     this.server = server;
-    server.on('connection', (socket) => this.accept(socket));
+    server.on('connection', (socket, request) => this.accept(socket, (request as AuthenticatedUpgradeRequest).quizUser));
     server.on('error', () => { /* Connection errors are reported to their socket; keep the HTTP process alive. */ });
     return server;
   }
@@ -68,9 +77,9 @@ export class RealtimeHub {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
-  private accept(socket: WebSocket): void {
+  private accept(socket: WebSocket, user?: RealtimeIdentity): void {
     if (this.shuttingDown) { socket.close(1001, 'Servidor encerrando'); return; }
-    this.contexts.set(socket, {});
+    this.contexts.set(socket, user ? { user } : {});
     socket.on('message', (data) => { void this.processMessage(socket, data); });
     socket.on('close', () => this.detach(socket));
     socket.on('error', () => this.detach(socket));
@@ -95,9 +104,11 @@ export class RealtimeHub {
       }
       case 'JOIN_ROOM': {
         this.requireUnbound(socket);
-        const joined = await this.services.roomService.joinRoom(command.payload.roomPin, command.payload.playerName, command.payload.avatarCharacterId, command.payload.avatarAccessoryId);
+        const context = this.context(socket);
+        if (this.authenticate && !context.user) this.fail('UNAUTHENTICATED', 'Entre com sua conta para participar da partida.');
+        const joined = await this.services.roomService.joinRoom(command.payload.roomPin, command.payload.playerName, command.payload.avatarCharacterId, command.payload.avatarAccessoryId, context.user ? { userId: context.user.id, email: context.user.email } : undefined);
         this.bind(socket, joined.room.pin, 'player', joined.player.id);
-        this.broadcast(joined.room.pin, { type: 'PLAYER_JOINED', payload: { roomPin: joined.room.pin, player: joined.player } });
+        this.broadcast(joined.room.pin, { type: 'PLAYER_JOINED', payload: { roomPin: joined.room.pin, player: toClientPlayer(joined.player) } });
         this.send(socket, { type: 'ROOM_SUBSCRIBED', payload: { roomPin: joined.room.pin, role: 'player', playerToken: joined.playerToken } });
         return;
       }
@@ -110,6 +121,7 @@ export class RealtimeHub {
         if (command.payload.playerId !== undefined && command.payload.playerToken !== undefined) {
           const player = room.players.find((item) => item.id === command.payload.playerId);
           if (!player) this.fail('PLAYER_NOT_FOUND', 'Jogador não pertence a esta sala.');
+          if (this.authenticate && (!context.user || player.userId !== context.user.id)) this.fail('FORBIDDEN', 'Entre com a conta associada a este participante.');
           if (!this.services.roomService.isValidPlayerToken(room.id, player.id, command.payload.playerToken)) this.fail('FORBIDDEN', 'A identidade do jogador não foi comprovada.');
           role = 'player';
           playerId = player.id;
@@ -127,7 +139,7 @@ export class RealtimeHub {
         // REST creates the official player record; subscribing publishes that record to the lobby.
         if (isNewPlayerSubscription && playerId) {
           const player = room.players.find((item) => item.id === playerId);
-          if (player) this.broadcast(room.pin, { type: 'PLAYER_JOINED', payload: { roomPin: room.pin, player } });
+          if (player) this.broadcast(room.pin, { type: 'PLAYER_JOINED', payload: { roomPin: room.pin, player: toClientPlayer(player) } });
         }
         let synced = false;
         let syncedRoom = room;
@@ -423,7 +435,11 @@ function rawDataToString(data: RawData): string {
 
 function toClientRoom(room: Awaited<ReturnType<RoomService['createRoom']>>): Extract<ServerEvent, { type: 'ROOM_CREATED' }>['payload']['room'] {
   const status = ({ WAITING: 'waiting', STARTING: 'starting', IN_PROGRESS: 'in-progress', FINISHED: 'finished' } as const)[room.status];
-  return { id: room.id, pin: room.pin, quizId: room.quizId, status, players: room.players };
+  return { id: room.id, pin: room.pin, quizId: room.quizId, status, players: room.players.map(toClientPlayer) };
+}
+
+function toClientPlayer(player: import('../domain/player.js').RoomPlayer) {
+  return { id: player.id, name: player.name, avatarCharacterId: player.avatarCharacterId ?? 'bear', avatarAccessoryId: player.avatarAccessoryId ?? 'none' };
 }
 
 function assertNever(command: never): never { throw new Error(`Comando não tratado: ${String(command)}`); }

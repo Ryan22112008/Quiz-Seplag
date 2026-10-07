@@ -32,7 +32,7 @@ export class GameReportService {
     for (const score of scores) if (!participantById.has(score.playerId)) participantById.set(score.playerId, { id: score.playerId, name: 'Participante', avatarCharacterId: 'bear', avatarAccessoryId: 'none' });
     const participants = [...participantById.values()].map((player) => {
       const score = scoreByPlayer.get(player.id);
-      return { id: player.id, name: player.name, avatarCharacterId: player.avatarCharacterId ?? 'bear', avatarAccessoryId: player.avatarAccessoryId ?? 'none', score: score?.score ?? 0, answeredQuestions: score?.answeredQuestions ?? 0, correctAnswers: score?.correctAnswers ?? 0, missedQuestions: Math.max(0, quiz.questions.length - (score?.answeredQuestions ?? 0)), completed: (score?.answeredQuestions ?? 0) >= quiz.questions.length };
+      return { id: player.id, name: player.name, ...(player.email ? { email: player.email } : {}), avatarCharacterId: player.avatarCharacterId ?? 'bear', avatarAccessoryId: player.avatarAccessoryId ?? 'none', score: score?.score ?? 0, answeredQuestions: score?.answeredQuestions ?? 0, correctAnswers: score?.correctAnswers ?? 0, missedQuestions: Math.max(0, quiz.questions.length - (score?.answeredQuestions ?? 0)), completed: (score?.answeredQuestions ?? 0) >= quiz.questions.length };
     }).sort((a, b) => b.score - a.score || b.correctAnswers - a.correctAnswers || a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }))
       .map((participant, index): GameReportParticipant => ({ ...participant, position: index + 1 }));
 

@@ -4,7 +4,7 @@ export interface GameReportQuestion {
   options: Array<{ id: string; text: string; count: number; correct: boolean }>;
 }
 export interface GameReportParticipant {
-  id: string; name: string; position: number; score: number;
+  id: string; name: string; email?: string; position: number; score: number;
   avatarCharacterId?: string; avatarAccessoryId?: string;
   answeredQuestions: number; correctAnswers: number; missedQuestions: number; completed: boolean;
 }

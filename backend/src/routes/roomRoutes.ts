@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import type { RoomController } from '../controllers/roomController.js';
+import { requireAuth } from '../auth/middleware.js';
 
 export function createRoomRoutes(roomController: RoomController) {
   const router = Router();
+  router.use(requireAuth);
   router.post('/rooms', roomController.createRoom);
   router.get('/rooms/:pin/quiz', roomController.getHostQuiz);
   router.get('/rooms/:pin', roomController.getRoom);

@@ -18,6 +18,7 @@ const sizes: Record<AvatarSize, string> = {
   lg: 'size-12 text-base',
   xl: 'size-16 text-lg',
 };
+const accessorySizes: Record<AvatarSize, string> = { sm: 'size-4 text-[10px]', md: 'size-5 text-xs', lg: 'size-6 text-sm', xl: 'size-7 text-base' };
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -47,7 +48,7 @@ export function Avatar({ src, name, size = 'md', alt, className, characterId, ac
       ) : hasCharacter ? (
         <span className="relative grid size-full place-items-center bg-gradient-to-br from-violet-300 to-indigo-400 text-[1.35em] leading-none" aria-hidden="true">
           <span>{characterEmoji(characterId)}</span>
-          {accessoryEmoji(accessoryId) && <span className="absolute right-0.5 top-0.5 grid size-[0.72em] place-items-center rounded-full bg-white text-[0.58em] shadow-sm">{accessoryEmoji(accessoryId)}</span>}
+          {accessoryEmoji(accessoryId) && <span className={cn('absolute left-1/2 top-0 grid -translate-x-1/2 place-items-center rounded-full border border-white/70 bg-white shadow-md', accessorySizes[size])}>{accessoryEmoji(accessoryId)}</span>}
         </span>
       ) : (
         <span aria-hidden="true">{initialsOf(name)}</span>

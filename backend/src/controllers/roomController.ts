@@ -2,6 +2,8 @@ import type { RequestHandler } from 'express';
 import { DomainError } from '../domain/errors.js';
 import type { RoomService } from '../services/roomService.js';
 import type { QuizService } from '../services/quizService.js';
+import type { Room } from '../domain/room.js';
+import type { RoomPlayer } from '../domain/player.js';
 
 type RouteParams = Record<string, string>;
 type JsonBody = unknown;
@@ -26,13 +28,16 @@ function readRouteParam(params: RouteParams, field: string): string {
   return value;
 }
 
+function publicPlayer(player: RoomPlayer) { return { id: player.id, name: player.name, avatarCharacterId: player.avatarCharacterId ?? 'bear', avatarAccessoryId: player.avatarAccessoryId ?? 'none' }; }
+function publicRoom(room: Room) { return { ...room, players: room.players.map(publicPlayer) }; }
+
 export class RoomController {
   constructor(private readonly roomService: RoomService, private readonly quizService: Pick<QuizService, 'getQuizById'>) {}
 
   createRoom: RequestHandler<RouteParams, unknown, JsonBody> = async (request, response, next) => {
     try {
       const created = await this.roomService.createRoomWithHostToken(readStringField(request.body, 'quizId'));
-      response.status(201).json({ ...created.room, hostToken: created.hostToken });
+      response.status(201).json({ ...publicRoom(created.room), hostToken: created.hostToken });
     } catch (error) {
       next(error);
     }
@@ -40,7 +45,7 @@ export class RoomController {
 
   getRoom: RequestHandler<RouteParams> = async (request, response, next) => {
     try {
-      response.status(200).json(await this.roomService.getRoomByPin(readRouteParam(request.params, 'pin')));
+      response.status(200).json(publicRoom(await this.roomService.getRoomByPin(readRouteParam(request.params, 'pin'))));
     } catch (error) {
       next(error);
     }
@@ -66,8 +71,9 @@ export class RoomController {
       if (typeof body !== 'object' || body === null || Array.isArray(body) || Object.keys(body).some((key) => !['name', 'avatarCharacterId', 'avatarAccessoryId'].includes(key))) throw new DomainError('INVALID_PLAYER_NAME', 400, 'Informe os dados válidos do jogador.');
       const record = body as Record<string, unknown>;
       if (typeof record.name !== 'string') throw new DomainError('INVALID_PLAYER_NAME', 400, 'Informe um nome válido.');
-      const joined = await this.roomService.joinRoom(readRouteParam(request.params, 'pin'), record.name, record.avatarCharacterId, record.avatarAccessoryId);
-      response.status(201).json(joined);
+      if (!request.auth) throw new DomainError('FORBIDDEN', 401, 'Entre com sua conta para participar da partida.');
+      const joined = await this.roomService.joinRoom(readRouteParam(request.params, 'pin'), record.name, record.avatarCharacterId, record.avatarAccessoryId, { userId: request.auth.user.id, email: request.auth.user.email });
+      response.status(201).json({ room: publicRoom(joined.room), player: publicPlayer(joined.player), playerToken: joined.playerToken });
     } catch (error) {
       next(error);
     }

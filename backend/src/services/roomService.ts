@@ -137,7 +137,7 @@ export class RoomService {
     return room;
   }
 
-  async joinRoom(pin: string, playerName: unknown, avatarCharacterId: unknown = 'bear', avatarAccessoryId: unknown = 'none'): Promise<JoinedRoom> {
+  async joinRoom(pin: string, playerName: unknown, avatarCharacterId: unknown = 'bear', avatarAccessoryId: unknown = 'none', identity?: { userId: string; email: string }): Promise<JoinedRoom> {
     const room = await this.getRoomByPin(pin);
     if (room.status !== 'WAITING') {
       throw new DomainError('ROOM_NOT_JOINABLE', 409, 'Esta sala não está aceitando jogadores.');
@@ -151,7 +151,7 @@ export class RoomService {
 
     const characterId = typeof avatarCharacterId === 'string' && AVATAR_CHARACTER_IDS.includes(avatarCharacterId as typeof AVATAR_CHARACTER_IDS[number]) ? avatarCharacterId : 'bear';
     const accessoryId = typeof avatarAccessoryId === 'string' && AVATAR_ACCESSORY_IDS.includes(avatarAccessoryId as typeof AVATAR_ACCESSORY_IDS[number]) ? avatarAccessoryId : 'none';
-    const player: RoomPlayer = { id: this.createId(), name, avatarCharacterId: characterId, avatarAccessoryId: accessoryId };
+    const player: RoomPlayer = { id: this.createId(), name, avatarCharacterId: characterId, avatarAccessoryId: accessoryId, ...(identity ? { userId: identity.userId, email: identity.email.toLowerCase() } : {}) };
     const updatedRoom = await this.repository.addPlayer(room.id, player);
     const playerToken = randomBytes(32).toString('base64url');
     this.playerTokens.set(player.id, { roomId: room.id, token: playerToken });

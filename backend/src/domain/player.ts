@@ -3,6 +3,8 @@ export interface RoomPlayer {
   name: string;
   avatarCharacterId?: string;
   avatarAccessoryId?: string;
+  userId?: string;
+  email?: string;
 }
 
 export const AVATAR_CHARACTER_IDS = ['bear', 'fox', 'frog', 'panda', 'cat', 'monster', 'unicorn', 'koala'] as const;
