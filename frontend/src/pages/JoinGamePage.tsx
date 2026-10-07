@@ -187,7 +187,7 @@ export function JoinGamePage() {
           </div>
         </CardContent>
       </Card>
-      <AvatarPickerModal open={avatarOpen} name={enteredPlayerName || 'Jogador'} characterId={avatarCharacterId} accessoryId={avatarAccessoryId} onClose={() => setAvatarOpen(false)} onSave={(characterId, accessoryId) => { setAvatar(characterId, accessoryId); setAvatarOpen(false); }} />
+      <AvatarPickerModal open={avatarOpen} name={enteredPlayerName || 'Jogador'} characterId={avatarCharacterId} onClose={() => setAvatarOpen(false)} onSave={(characterId) => { setAvatar(characterId, 'none'); setAvatarOpen(false); }} />
     </Container>
   );
 }

@@ -22,7 +22,7 @@ const STORAGE_KEY = 'quiz-seplag.player-session.v1';
 const TOKEN_KEY = 'quiz-seplag.player-capability.v1';
 const AVATAR_KEY = 'quiz-seplag.player-avatar.v1';
 function readAvatar(): { avatarCharacterId: AvatarCharacterId; avatarAccessoryId: AvatarAccessoryId } {
-  try { const data = JSON.parse(localStorage.getItem(AVATAR_KEY) ?? 'null') as { characterId?: AvatarCharacterId; accessoryId?: AvatarAccessoryId } | null; return { avatarCharacterId: data?.characterId ?? DEFAULT_AVATAR_CHARACTER, avatarAccessoryId: data?.accessoryId ?? DEFAULT_AVATAR_ACCESSORY }; } catch { return { avatarCharacterId: DEFAULT_AVATAR_CHARACTER, avatarAccessoryId: DEFAULT_AVATAR_ACCESSORY }; }
+  try { const data = JSON.parse(localStorage.getItem(AVATAR_KEY) ?? 'null') as { characterId?: AvatarCharacterId } | null; return { avatarCharacterId: data?.characterId ?? DEFAULT_AVATAR_CHARACTER, avatarAccessoryId: DEFAULT_AVATAR_ACCESSORY }; } catch { return { avatarCharacterId: DEFAULT_AVATAR_CHARACTER, avatarAccessoryId: DEFAULT_AVATAR_ACCESSORY }; }
 }
 function readIdentity(): Pick<PlayerState, 'playerName' | 'roomPin' | 'playerId' | 'roomId' | 'playerToken'> {
   try {
@@ -50,7 +50,7 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   setPlayerName: (name) => set((state) => { const next = { ...state, playerName: name }; saveIdentity(next); return next; }),
   setRoomPin: (pin) => set((state) => { const next = { ...state, roomPin: pin }; saveIdentity(next); return next; }),
   setIdentity: (identity) => { saveIdentity(identity); try { sessionStorage.setItem(TOKEN_KEY, identity.playerToken); } catch { /* Current session can still continue in memory. */ } set((state) => ({ ...state, ...identity, avatarCharacterId: identity.avatarCharacterId ?? state.avatarCharacterId, avatarAccessoryId: identity.avatarAccessoryId ?? state.avatarAccessoryId })); },
-  setAvatar: (characterId, accessoryId) => { try { localStorage.setItem(AVATAR_KEY, JSON.stringify({ characterId, accessoryId })); } catch { /* Keep the avatar in memory for this visit. */ } set({ avatarCharacterId: characterId, avatarAccessoryId: accessoryId }); },
+  setAvatar: (characterId) => { try { localStorage.setItem(AVATAR_KEY, JSON.stringify({ characterId, accessoryId: DEFAULT_AVATAR_ACCESSORY })); } catch { /* Keep the avatar in memory for this visit. */ } set({ avatarCharacterId: characterId, avatarAccessoryId: DEFAULT_AVATAR_ACCESSORY }); },
 
   clearPlayer: () => { saveIdentity({ playerName: '', roomPin: '', playerId: '', roomId: '' }); try { sessionStorage.removeItem(TOKEN_KEY); } catch { /* Best effort cleanup. */ } set((state) => ({ ...state, playerName: '', roomPin: '', playerId: '', roomId: '', playerToken: '' })); },
 }));

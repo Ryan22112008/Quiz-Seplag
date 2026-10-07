@@ -1,6 +1,6 @@
 import type { ImgHTMLAttributes } from 'react';
 import { cn } from '@/lib/cn';
-import { accessoryEmoji, characterEmoji } from '@/lib/playerAvatarOptions';
+import { characterEmoji } from '@/lib/playerAvatarOptions';
 
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -18,7 +18,6 @@ const sizes: Record<AvatarSize, string> = {
   lg: 'size-12 text-base',
   xl: 'size-16 text-lg',
 };
-const accessorySizes: Record<AvatarSize, string> = { sm: 'size-4 text-[10px]', md: 'size-5 text-xs', lg: 'size-6 text-sm', xl: 'size-7 text-base' };
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -31,6 +30,8 @@ function initialsOf(name: string): string {
 
 /** Avatar with image fallback to initials. Always carries an accessible label. */
 export function Avatar({ src, name, size = 'md', alt, className, characterId, accessoryId, ...rest }: AvatarProps) {
+  // Keep accepting legacy accessory data from existing sessions, but never render accessories.
+  void accessoryId;
   const label = alt ?? name;
   const hasCharacter = Boolean(characterId);
   return (
@@ -48,7 +49,6 @@ export function Avatar({ src, name, size = 'md', alt, className, characterId, ac
       ) : hasCharacter ? (
         <span className="relative grid size-full place-items-center bg-gradient-to-br from-violet-300 to-indigo-400 text-[1.35em] leading-none" aria-hidden="true">
           <span>{characterEmoji(characterId)}</span>
-          {accessoryEmoji(accessoryId) && <span className={cn('absolute left-1/2 top-0 grid -translate-x-1/2 place-items-center rounded-full border border-white/70 bg-white shadow-md', accessorySizes[size])}>{accessoryEmoji(accessoryId)}</span>}
         </span>
       ) : (
         <span aria-hidden="true">{initialsOf(name)}</span>
