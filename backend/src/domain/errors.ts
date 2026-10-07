@@ -37,6 +37,9 @@ export type DomainErrorCode =
   | 'ROOM_ID_CONFLICT'
   | 'ROOM_STORE_ERROR'
   | 'FORBIDDEN'
+  | 'INVALID_CREDENTIALS'
+  | 'EMAIL_ALREADY_REGISTERED'
+  | 'GOOGLE_OAUTH_NOT_CONFIGURED'
 
 export class DomainError extends Error {
   constructor(

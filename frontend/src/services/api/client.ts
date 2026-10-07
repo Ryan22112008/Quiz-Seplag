@@ -1,6 +1,7 @@
 import type { Quiz } from '@/types/quiz';
 import type { Room, RoomPlayer } from '@/types/room';
 import { API_BASE_URL } from '@/config/environment';
+import { useAuthStore } from '@/stores/authStore';
 
 export interface ApiRoom { id: string; pin: string; quizId: string; status: 'WAITING' | 'STARTING' | 'IN_PROGRESS' | 'FINISHED'; players: Array<{ id: string; name: string }> }
 export interface CreatedApiRoom extends ApiRoom { hostToken: string }
@@ -11,7 +12,8 @@ export interface ApiRankingEntry { position: number; playerId: string; playerNam
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
-  try { response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers } }); }
+  const csrfToken = useAuthStore.getState().csrfToken;
+  try { response = await fetch(`${API_BASE_URL}${path}`, { ...init, credentials: 'include', headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...(csrfToken && !['GET', 'HEAD'].includes(init?.method?.toUpperCase() ?? 'GET') ? { 'X-CSRF-Token': csrfToken } : {}), ...init?.headers } }); }
   catch { throw new Error('Não foi possível conectar. Confira sua internet e tente novamente.'); }
   if (!response.ok) {
     const data = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
@@ -25,7 +27,8 @@ export const api = {
     let response: Response;
     const form = new FormData();
     form.append('image', file);
-    try { response = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', body: form }); }
+    const csrfToken = useAuthStore.getState().csrfToken;
+    try { response = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', credentials: 'include', headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {}, body: form }); }
     catch { throw new Error('Não foi possível enviar a imagem.'); }
     const data = await response.json().catch(() => null) as { imageUrl?: string; error?: { message?: string } } | null;
     if (!response.ok || !data?.imageUrl) throw new Error(data?.error?.message ?? `O servidor não aceitou a imagem (HTTP ${response.status}).`);

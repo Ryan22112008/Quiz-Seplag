@@ -227,3 +227,6 @@ No backend, configurar `NODE_ENV=production`, `PORT` conforme a porta injetada p
 O produto está temporariamente sem contas, login, biblioteca e relatórios. A criação, edição, revisão e condução de quizzes continuam disponíveis sem sessão. A lista da biblioteca e suas rotas de busca foram removidas. O ranking e o pódio ao final da partida continuam disponíveis como parte do fluxo do jogo.
 
 As migrations antigas e as tabelas de contas e ownership já aplicadas são mantidas para preservar o banco existente; a aplicação não oferece login nem usa essas tabelas no fluxo atual. Quizzes com salas registradas continuam protegidos contra exclusão para preservar o histórico da partida. `FRONTEND_ORIGINS` continua necessária para CORS e WebSocket.
+# Autenticação
+
+O backend aceita cadastro e login com e-mail e senha sem serviço de envio de e-mail. Para habilitar também o Google, configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_CALLBACK_URL` no ambiente do backend. O callback deve apontar para `https://<dominio-da-api>/auth/google/callback` e a mesma URL deve estar autorizada no cliente OAuth do Google. Configure `FRONTEND_URL` com a origem pública do frontend e inclua essa origem em `FRONTEND_ORIGINS`. `SESSION_SECRET` é opcional, mas recomendado em produção; use um valor aleatório com pelo menos 32 caracteres.

@@ -54,9 +54,25 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     catch { throw new Error('DATABASE_URL deve ser uma URL válida para MySQL.'); }
     if (databaseUrl.protocol !== 'mysql:') throw new Error('DATABASE_URL deve usar o provider MySQL definido no schema Prisma.');
   }
+  const frontendOrigins = readFrontendOrigins(environment.FRONTEND_ORIGINS, nodeEnv);
+  const frontendUrl = environment.FRONTEND_URL?.trim() || frontendOrigins[0] || 'http://localhost:5173';
+  try { if (new URL(frontendUrl).origin !== frontendUrl) throw new Error(); }
+  catch { throw new Error('FRONTEND_URL deve ser uma origem válida, sem caminho.'); }
+  if (nodeEnv === 'production' && !frontendOrigins.includes(frontendUrl)) throw new Error('FRONTEND_URL deve estar incluída em FRONTEND_ORIGINS.');
+  const googleCallbackUrl = environment.GOOGLE_CALLBACK_URL?.trim() || (nodeEnv === 'production' ? '' : 'http://localhost:3000/auth/google/callback');
+  if (environment.GOOGLE_CALLBACK_URL?.trim()) {
+    const callback = new URL(googleCallbackUrl);
+    if (nodeEnv === 'production' && callback.protocol !== 'https:') throw new Error('GOOGLE_CALLBACK_URL deve usar HTTPS em produção.');
+  }
   return {
     nodeEnv: nodeEnv as AppConfig['nodeEnv'],
     port: readPort(environment.PORT),
-    frontendOrigins: readFrontendOrigins(environment.FRONTEND_ORIGINS, nodeEnv),
+    frontendOrigins,
+    frontendUrl,
+    googleClientId: environment.GOOGLE_CLIENT_ID?.trim() ?? '',
+    googleClientSecret: environment.GOOGLE_CLIENT_SECRET?.trim() ?? '',
+    googleCallbackUrl,
+    secureCookies: nodeEnv === 'production',
+    sessionSecret: environment.SESSION_SECRET?.trim() || environment.DATABASE_URL || 'development-only-session-secret-change-me',
   };
 }

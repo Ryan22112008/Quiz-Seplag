@@ -30,6 +30,7 @@ export function SiteHeader() {
 
           <nav aria-label="Navegação principal" className="hidden items-center gap-1 sm:flex">
             <NavLink href="#como-funciona">Como funciona</NavLink>
+            <ButtonLink to="/login" variant="ghost" size="sm">Entrar</ButtonLink>
             <ButtonLink to="/criar" size="sm" className="ml-2">
               Criar quiz
             </ButtonLink>
@@ -57,6 +58,7 @@ export function SiteHeader() {
             <NavLink href="#como-funciona" onClick={() => setMenuOpen(false)}>
               Como funciona
             </NavLink>
+            <ButtonLink to="/login" variant="ghost" size="md" onClick={() => setMenuOpen(false)}>Entrar</ButtonLink>
             <ButtonLink to="/criar" size="md" className="mt-1 w-full" onClick={() => setMenuOpen(false)}>
               Criar quiz
             </ButtonLink>

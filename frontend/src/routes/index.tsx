@@ -1,4 +1,4 @@
-import { Outlet, Route, Routes, useSearchParams } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import {
   ComingSoonPage,
   CreateQuizPage,
@@ -11,20 +11,23 @@ import {
   JoinGamePage,
   ReviewQuizPage,
   PlayerGamePage,
+  LoginPage,
 } from '@/pages';
-import { SiteHeader } from '@/components/layout/SiteHeader';
+import { AuthenticatedHeader } from '@/components/layout/AuthenticatedHeader';
+import { useAuthStore } from '@/stores/authStore';
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomeEntryPage />} />
+      <Route path="/login" element={<LoginPage />} />
       {/* Room entry flow */}
       <Route path="/join" element={<JoinGamePage />} />
       <Route path="/jogar/:pin" element={<JoinGamePage />} />
       <Route path="/jogar/:pin/aguardando" element={<GameLobbyPage />} />
       <Route path="/jogar/:pin/partida" element={<PlayerGamePage />} />
       {/* Quiz creation flow */}
-      <Route element={<><SiteHeader /><Outlet /></>}>
+      <Route element={<RequireAuth />}>
         <Route path="/design-system" element={<DesignSystemPreview />} />
         <Route path="/criar" element={<CreateQuizPage />} />
         <Route path="/criar/:quizId/perguntas" element={<EditQuizQuestionsPage />} />
@@ -48,4 +51,12 @@ export function AppRoutes() {
 function HomeEntryPage() {
   const [searchParams] = useSearchParams();
   return searchParams.has('pin') ? <JoinGamePage /> : <HomePage />;
+}
+
+function RequireAuth() {
+  const status = useAuthStore((state) => state.status);
+  const location = useLocation();
+  if (status === 'loading') return <main className="grid min-h-screen place-items-center text-neutral-600" role="status">Verificando sua sessão…</main>;
+  if (status === 'unauthenticated') return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  return <><AuthenticatedHeader /><Outlet /></>;
 }
