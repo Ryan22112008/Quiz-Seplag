@@ -56,9 +56,10 @@ export function LoginPage() {
         {mode === 'register' && <Input label="Confirme a senha" type="password" autoComplete="new-password" required minLength={10} maxLength={128} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />}
         <Button className="mt-1 w-full" type="submit" size="lg" disabled={busy}>{busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}</Button>
       </form>
-      <div className="my-5 flex items-center gap-3 text-xs text-neutral-500"><span className="h-px flex-1 bg-border" />ou<span className="h-px flex-1 bg-border" /></div>
-      <Button variant="outline" className="w-full" size="lg" onClick={googleLogin} disabled={busy || !googleEnabled}><span aria-hidden="true" className="font-bold">G</span>{googleEnabled ? 'Entrar com o Google' : 'Google indisponível neste servidor'}</Button>
-      {!googleEnabled && <p className="mt-2 text-center text-xs text-neutral-500">O login Google será habilitado após configurar as credenciais OAuth no servidor.</p>}
+      {googleEnabled && <>
+        <div className="my-5 flex items-center gap-3 text-xs text-neutral-500"><span className="h-px flex-1 bg-border" />ou<span className="h-px flex-1 bg-border" /></div>
+        <Button variant="outline" className="w-full" size="lg" onClick={googleLogin} disabled={busy}><span aria-hidden="true" className="font-bold">G</span>Entrar com o Google</Button>
+      </>}
       <p className="mt-6 text-center text-sm text-neutral-600">{mode === 'login' ? 'Ainda não tem conta?' : 'Já tem conta?'}{' '}<button type="button" className="font-semibold text-primary-700 underline underline-offset-2" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'Criar conta' : 'Fazer login'}</button></p>
       <ButtonLink to="/" variant="ghost" className="mt-3 w-full justify-center">Voltar à página inicial</ButtonLink>
     </section>

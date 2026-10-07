@@ -24,7 +24,7 @@ export function FinalPodium({ entries, animate = false }: FinalPodiumProps) {
   const delayFor = (position: number) => revealOrder.indexOf(position) * 650;
 
   return (
-    <section aria-labelledby="final-podium-title" className="mx-auto w-full max-w-4xl overflow-hidden rounded-3xl bg-gradient-to-br from-[#281447] via-[#4a1684] to-[#241044] px-3 py-8 text-white shadow-xl sm:px-8 sm:py-10">
+    <section aria-labelledby="final-podium-title" className="mx-auto mb-8 w-full max-w-4xl overflow-hidden rounded-3xl bg-gradient-to-br from-[#281447] via-[#4a1684] to-[#241044] px-3 py-8 text-white shadow-xl sm:mb-10 sm:px-8 sm:py-10">
       <div className="mb-8 text-center">
         <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-white/10 text-amber-200 ring-1 ring-white/20"><Trophy className="size-6" aria-hidden="true" /></div>
         <p className="type-caption font-bold uppercase tracking-[0.24em] text-violet-200">Grande final</p>

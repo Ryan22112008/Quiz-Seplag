@@ -11,21 +11,45 @@ function text(value: unknown, min: number, max: number): value is string {
 export class QuizService {
   constructor(private readonly repository: QuizRepository, private readonly createId: () => string = randomUUID, private readonly now: () => string = () => new Date().toISOString()) {}
 
-  async createQuiz(input: unknown): Promise<Quiz> {
-    return this.repository.create(this.normalizeQuiz(input));
+  async createQuiz(input: unknown, ownerId?: string): Promise<Quiz> {
+    return this.repository.create(this.normalizeQuiz(input), ownerId);
   }
 
-  async updateQuiz(id: string, input: unknown): Promise<Quiz> {
-    const existing = await this.getQuizById(id);
+  async updateQuiz(id: string, input: unknown, ownerId?: string): Promise<Quiz> {
+    const existing = ownerId ? await this.getOwnedQuizById(id, ownerId) : await this.getQuizById(id);
     const updated = this.normalizeQuiz(input, id, existing.createdAt);
-    return this.repository.update(updated);
+    return this.repository.update(updated, ownerId);
   }
 
-  async duplicateQuiz(id: string): Promise<Quiz> {
-    const original = await this.getQuizById(id);
+  async duplicateQuiz(id: string, ownerId?: string): Promise<Quiz> {
+    const original = ownerId ? await this.getOwnedQuizById(id, ownerId) : await this.getQuizById(id);
     const titleSuffix = ' (cópia)';
     const title = `${original.title.slice(0, 100 - titleSuffix.length)}${titleSuffix}`;
-    return this.createQuiz({ title, description: original.description, category: original.category, questions: original.questions });
+    return this.createQuiz({ title, description: original.description, category: original.category, questions: original.questions }, ownerId);
+  }
+
+  listOwnedQuizzes(ownerId: string, deleted = false): Promise<Quiz[]> { return this.repository.findAllByOwner(ownerId, deleted); }
+
+  async getOwnedQuizById(id: string, ownerId: string, deleted = false): Promise<Quiz> {
+    if (typeof id !== 'string' || !id.trim() || id.length > 128) throw new DomainError('INVALID_QUIZ_ID', 400, 'Informe um identificador de quiz válido.');
+    const quiz = await this.repository.findOwnedById(id, ownerId, deleted);
+    if (!quiz) throw new DomainError('QUIZ_NOT_FOUND', 404, 'Quiz não encontrado.');
+    return quiz;
+  }
+
+  async trashOwnedQuiz(id: string, ownerId: string): Promise<void> {
+    await this.getOwnedQuizById(id, ownerId);
+    if (!await this.repository.setDeletedAt(id, ownerId, new Date(this.now()))) throw new DomainError('QUIZ_NOT_FOUND', 404, 'Quiz não encontrado.');
+  }
+
+  async restoreOwnedQuiz(id: string, ownerId: string): Promise<void> {
+    await this.getOwnedQuizById(id, ownerId, true);
+    if (!await this.repository.setDeletedAt(id, ownerId, null)) throw new DomainError('QUIZ_NOT_FOUND', 404, 'Quiz não encontrado.');
+  }
+
+  async permanentlyDeleteOwnedQuiz(id: string, ownerId: string): Promise<void> {
+    await this.getOwnedQuizById(id, ownerId, true);
+    if (!await this.repository.delete(id)) throw new DomainError('QUIZ_NOT_FOUND', 404, 'Quiz não encontrado.');
   }
 
   async deleteQuiz(id: string): Promise<void> {

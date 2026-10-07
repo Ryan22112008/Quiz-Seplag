@@ -15,10 +15,12 @@ model Quiz {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   ownerId     String?
+  deletedAt   DateTime?
   owner       User?      @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   questions   Question[]
   rooms       Room[]
   @@index([ownerId])
+  @@index([ownerId, deletedAt])
 }
 
 model User {

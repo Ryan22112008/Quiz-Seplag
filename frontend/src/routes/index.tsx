@@ -12,6 +12,7 @@ import {
   ReviewQuizPage,
   PlayerGamePage,
   LoginPage,
+  LibraryPage,
 } from '@/pages';
 import { AuthenticatedHeader } from '@/components/layout/AuthenticatedHeader';
 import { useAuthStore } from '@/stores/authStore';
@@ -29,6 +30,7 @@ export function AppRoutes() {
       {/* Quiz creation flow */}
       <Route element={<RequireAuth />}>
         <Route path="/design-system" element={<DesignSystemPreview />} />
+        <Route path="/biblioteca" element={<LibraryPage />} />
         <Route path="/criar" element={<CreateQuizPage />} />
         <Route path="/criar/:quizId/perguntas" element={<EditQuizQuestionsPage />} />
         <Route path="/criar/:quizId/revisar" element={<ReviewQuizPage />} />

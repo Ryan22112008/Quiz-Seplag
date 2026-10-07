@@ -11,6 +11,7 @@ import { PlayPage } from './PlayPage';
 import { PlayerGamePage } from './PlayerGamePage';
 import { ReviewQuizPage } from './ReviewQuizPage';
 import { LoginPage } from './LoginPage';
+import { LibraryPage } from './LibraryPage';
 
 export {
   ComingSoonPage,
@@ -26,4 +27,5 @@ export {
   PlayerGamePage,
   ReviewQuizPage,
   LoginPage,
+  LibraryPage,
 };
