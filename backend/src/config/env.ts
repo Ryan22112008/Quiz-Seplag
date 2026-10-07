@@ -74,5 +74,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     googleCallbackUrl,
     secureCookies: nodeEnv === 'production',
     sessionSecret: environment.SESSION_SECRET?.trim() || environment.DATABASE_URL || 'development-only-session-secret-change-me',
+    resendApiKey: environment.RESEND_API_KEY?.trim() ?? '',
+    emailFrom: environment.EMAIL_FROM?.trim() || 'Quiz SEPLAG <onboarding@resend.dev>',
   };
 }

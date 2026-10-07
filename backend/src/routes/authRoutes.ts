@@ -16,6 +16,16 @@ export function createAuthRoutes(auth: AuthService) {
     try { const result = await auth.login(request.body?.email, request.body?.password); setSessionCookies(response, result, auth); response.set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken }); }
     catch (error) { next(error); }
   });
+  router.post('/auth/password/forgot', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
+    try { await auth.requestPasswordReset(request.body?.email); response.status(202).set('Cache-Control', 'no-store').json({ message: 'Se houver uma conta com esse e-mail, enviaremos um código para redefinir sua senha.' }); }
+    catch (error) { next(error); }
+  });
+  router.post('/auth/password/reset', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
+    try { await auth.resetPassword(request.body?.email, request.body?.code, request.body?.password); response.status(204).set('Cache-Control', 'no-store').send(); }
+    catch (error) { next(error); }
+  });
   router.get('/auth/google', async (request, response, next) => {
     try {
       const authorization = await auth.createAuthorizationUrl(typeof request.query.returnTo === 'string' ? request.query.returnTo : '/');

@@ -36,7 +36,7 @@ const steps = [
   { number: '03', title: 'Suba no ranking', description: 'Acertos rápidos valem mais pontos.' },
 ];
 
-export function HomePage() {
+export function HomePage({ showHeader = true }: { showHeader?: boolean } = {}) {
   const pinInputRef = useRef<HTMLInputElement | null>(null);
 
   const focusPinInput = () => {
@@ -53,7 +53,7 @@ export function HomePage() {
         Pular para o conteúdo
       </a>
 
-      <SiteHeader />
+      {showHeader && <SiteHeader />}
 
       <main id="conteudo" className="flex flex-1 flex-col">
         <section aria-labelledby="hero-title" className="relative overflow-hidden bg-surface">

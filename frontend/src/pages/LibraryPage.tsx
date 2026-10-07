@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Check, Clock3, Copy, Folder, FolderPlus, Grid2X2, Heart, Image as ImageIcon, List, MoreHorizontal, Search, Sparkles, Trash2, Undo2, BookMarked, GraduationCap } from 'lucide-react';
+import { BookOpen, Check, Clock3, Copy, Folder, FolderPlus, Grid2X2, Heart, Image as ImageIcon, List, MoreHorizontal, Search, Trash2, Undo2, BookMarked, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +12,7 @@ import type { Quiz } from '@/types/quiz';
 import { imageSource } from '@/lib/imageSource';
 
 type MainTab = 'recent' | 'drafts' | 'favorites' | 'shared';
-type LibrarySection = 'kahoots' | 'stories' | 'courses' | 'purchased' | 'trash';
+type LibrarySection = 'kahoots' | 'stories' | 'courses' | 'trash';
 interface LibraryPreferences { favorites: string[]; folders: string[]; quizFolders: Record<string, string> }
 const emptyPreferences: LibraryPreferences = { favorites: [], folders: [], quizFolders: {} };
 const tabs: Array<{ id: MainTab; label: string }> = [
@@ -21,7 +21,7 @@ const tabs: Array<{ id: MainTab; label: string }> = [
 ];
 const sections: Array<{ id: LibrarySection; label: string; Icon: typeof BookOpen }> = [
   { id: 'kahoots', label: 'Quizzes', Icon: BookOpen }, { id: 'stories', label: 'Histórias', Icon: BookMarked },
-  { id: 'courses', label: 'Cursos', Icon: GraduationCap }, { id: 'purchased', label: 'Conteúdo comprado', Icon: Sparkles },
+  { id: 'courses', label: 'Cursos', Icon: GraduationCap },
 ];
 
 function readPreferences(userId: string): LibraryPreferences {

@@ -9,7 +9,7 @@ const PASSWORD_COST = 1 << 14;
 const PASSWORD_KEY_LENGTH = 64;
 
 export interface PublicUser { id: string; name: string; email: string; avatarUrl: string | null }
-export interface AuthConfig { clientId: string; clientSecret: string; callbackUrl: string; frontendOrigin: string; allowedOrigins: string[]; secureCookies: boolean; sessionSecret: string }
+export interface AuthConfig { clientId: string; clientSecret: string; callbackUrl: string; frontendOrigin: string; allowedOrigins: string[]; secureCookies: boolean; sessionSecret: string; resendApiKey?: string; emailFrom?: string }
 export type GoogleIdentityClient = Pick<OAuth2Client, 'generateCodeVerifierAsync' | 'generateAuthUrl' | 'getToken' | 'verifyIdToken'>;
 
 function derivePassword(password: string, salt: Buffer): Promise<Buffer> {
@@ -34,6 +34,7 @@ function validPassword(value: unknown): value is string {
   return typeof value === 'string' && value.length >= 10 && value.length <= 128 && !/[\u0000-\u001f\u007f]/u.test(value);
 }
 function displayNameFromEmail(email: string): string { return (email.split('@')[0] ?? 'Usuário').replace(/[._+-]+/gu, ' ').trim().slice(0, 191) || 'Usuário'; }
+function escapeHtml(value: string): string { return value.replace(/[&<>"']/gu, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character); }
 
 export class AuthService {
   private readonly google: GoogleIdentityClient;
@@ -69,6 +70,67 @@ export class AuthService {
     if (!await passwordMatches(passwordInput, user.passwordHash)) throw new DomainError('INVALID_CREDENTIALS', 401, 'E-mail ou senha inválidos.');
     const { passwordHash: _passwordHash, ...publicUser } = user;
     return { user: publicUser, ...await this.createSession(user.id) };
+  }
+
+  async requestPasswordReset(emailInput: unknown): Promise<void> {
+    if (!this.config.resendApiKey) throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'A recuperação de senha ainda não está configurada para enviar e-mails.');
+    if (!validEmail(emailInput)) throw new DomainError('INVALID_CREDENTIALS', 400, 'Informe um endereço de e-mail válido.');
+    const email = emailInput.trim().toLowerCase();
+    const user = await this.db.user.findUnique({ where: { email }, select: { id: true, email: true, name: true, passwordHash: true } });
+    if (!user?.passwordHash) return;
+
+    const code = String(randomBytes(4).readUInt32BE() % 1_000_000).padStart(6, '0');
+    const tokenId = this.resetDigest(user.id, code);
+    const expiresAt = new Date(this.now().getTime() + 10 * 60_000);
+    await this.db.passwordResetToken.deleteMany({ where: { userId: user.id } });
+    await this.db.passwordResetToken.create({ data: { id: tokenId, userId: user.id, expiresAt } });
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.config.resendApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: this.config.emailFrom ?? 'Quiz SEPLAG <onboarding@resend.dev>',
+          to: [user.email],
+          subject: 'Código para redefinir sua senha | Quiz SEPLAG',
+          text: `Olá, ${user.name}. Seu código para redefinir a senha é ${code}. Ele expira em 10 minutos. Se você não solicitou a alteração, ignore este e-mail.`,
+          html: `<p>Olá, ${escapeHtml(user.name)}.</p><p>Use este código para redefinir sua senha do Quiz SEPLAG:</p><p style="font-size:28px;font-weight:bold;letter-spacing:8px">${code}</p><p>O código expira em 10 minutos. Se você não solicitou a alteração, ignore este e-mail.</p>`,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error('EMAIL_PROVIDER_REJECTED');
+    } catch {
+      await this.db.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'Não foi possível enviar o e-mail agora. Tente novamente mais tarde.');
+    }
+  }
+
+  async resetPassword(emailInput: unknown, codeInput: unknown, passwordInput: unknown): Promise<void> {
+    if (!validEmail(emailInput) || typeof codeInput !== 'string' || !/^\d{6}$/u.test(codeInput) || !validPassword(passwordInput)) {
+      throw new DomainError('PASSWORD_RESET_INVALID', 400, 'Código inválido ou expirado. Confira os dados e tente novamente.');
+    }
+    const email = emailInput.trim().toLowerCase();
+    const user = await this.db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true } });
+    if (!user?.passwordHash) throw new DomainError('PASSWORD_RESET_INVALID', 400, 'Código inválido ou expirado. Confira os dados e tente novamente.');
+    const token = await this.db.passwordResetToken.findFirst({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } });
+    if (!token || token.expiresAt <= this.now() || token.attempts >= 5) {
+      if (token) await this.db.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      throw new DomainError('PASSWORD_RESET_INVALID', 400, 'Código inválido ou expirado. Solicite um novo código.');
+    }
+    const submittedDigest = this.resetDigest(user.id, codeInput);
+    const expected = Buffer.from(token.id, 'hex');
+    const submitted = Buffer.from(submittedDigest, 'hex');
+    if (expected.length !== submitted.length || !timingSafeEqual(expected, submitted)) {
+      const attempts = token.attempts + 1;
+      if (attempts >= 5) await this.db.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      else await this.db.passwordResetToken.update({ where: { id: token.id }, data: { attempts } });
+      throw new DomainError('PASSWORD_RESET_INVALID', 400, attempts >= 5 ? 'Muitas tentativas. Solicite um novo código.' : 'Código inválido ou expirado. Confira os dados e tente novamente.');
+    }
+    const passwordHash = await hashPassword(passwordInput);
+    await this.db.$transaction([
+      this.db.user.update({ where: { id: user.id }, data: { passwordHash } }),
+      this.db.authSession.deleteMany({ where: { userId: user.id } }),
+      this.db.passwordResetToken.deleteMany({ where: { userId: user.id } }),
+    ]);
   }
 
   async createAuthorizationUrl(returnTo = '/'): Promise<{ url: string; state: string }> {
@@ -126,6 +188,7 @@ export class AuthService {
     return { sessionToken, csrfToken };
   }
   private sessionDigest(token: string): string { return digest(token, this.config.sessionSecret); }
+  private resetDigest(userId: string, code: string): string { return digest(`password-reset:${userId}:${code}`, this.config.sessionSecret); }
   cookieOptions() { return { httpOnly: true, secure: this.config.secureCookies, sameSite: this.config.secureCookies ? 'none' as const : 'lax' as const, path: '/', maxAge: 30 * 24 * 60 * 60_000 }; }
   clearCookieOptions() { return { httpOnly: true, secure: this.config.secureCookies, sameSite: this.config.secureCookies ? 'none' as const : 'lax' as const, path: '/' }; }
 }

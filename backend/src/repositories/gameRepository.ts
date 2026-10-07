@@ -15,6 +15,7 @@ export interface GameRepository {
   advanceAfterResults(id: string, expectedIndex: number, expectedQuestionId: string, questionId: string | null, startedAt: string, endsAt: string | null, finishedAt: string | null): Promise<Game>;
   submitAnswer(answer: PlayerAnswer): Promise<{ answer: PlayerAnswer; score: PlayerGameScore }>;
   findAnswer(gameId: string, questionId: string, playerId: string): Promise<PlayerAnswer | undefined>;
+  listAnswers(gameId: string): Promise<PlayerAnswer[]>;
   listScores(gameId: string): Promise<PlayerGameScore[]>;
   delete(id: string): Promise<boolean>;
 }
@@ -165,6 +166,10 @@ export class InMemoryGameRepository implements GameRepository {
   async findAnswer(gameId: string, questionId: string, playerId: string): Promise<PlayerAnswer | undefined> {
     const answer = this.answers.get(this.answerKey(gameId, questionId, playerId));
     return answer ? { ...answer } : undefined;
+  }
+
+  async listAnswers(gameId: string): Promise<PlayerAnswer[]> {
+    return [...this.answers.values()].filter((answer) => answer.gameId === gameId).map((answer) => ({ ...answer }));
   }
 
   async listScores(gameId: string): Promise<PlayerGameScore[]> {

@@ -40,6 +40,9 @@ export type DomainErrorCode =
   | 'INVALID_CREDENTIALS'
   | 'EMAIL_ALREADY_REGISTERED'
   | 'GOOGLE_OAUTH_NOT_CONFIGURED'
+  | 'EMAIL_DELIVERY_NOT_CONFIGURED'
+  | 'PASSWORD_RESET_INVALID'
+  | 'REPORT_NOT_FOUND'
 
 export class DomainError extends Error {
   constructor(

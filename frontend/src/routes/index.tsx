@@ -13,8 +13,10 @@ import {
   PlayerGamePage,
   LoginPage,
   LibraryPage,
+  ReportsPage,
+  ReportDetailPage,
 } from '@/pages';
-import { AuthenticatedHeader } from '@/components/layout/AuthenticatedHeader';
+import { AuthenticatedSidebarLayout } from '@/components/layout/AuthenticatedSidebarLayout';
 import { useAuthStore } from '@/stores/authStore';
 
 export function AppRoutes() {
@@ -31,6 +33,9 @@ export function AppRoutes() {
       <Route element={<RequireAuth />}>
         <Route path="/design-system" element={<DesignSystemPreview />} />
         <Route path="/biblioteca" element={<LibraryPage />} />
+        <Route path="/descobrir" element={<ComingSoonPage title="Descobrir" description="Estamos preparando uma forma de explorar quizzes disponíveis na plataforma." />} />
+        <Route path="/relatorios" element={<ReportsPage />} />
+        <Route path="/relatorios/:reportId" element={<ReportDetailPage />} />
         <Route path="/criar" element={<CreateQuizPage />} />
         <Route path="/criar/:quizId/perguntas" element={<EditQuizQuestionsPage />} />
         <Route path="/criar/:quizId/revisar" element={<ReviewQuizPage />} />
@@ -52,7 +57,10 @@ export function AppRoutes() {
 
 function HomeEntryPage() {
   const [searchParams] = useSearchParams();
-  return searchParams.has('pin') ? <JoinGamePage /> : <HomePage />;
+  const status = useAuthStore((state) => state.status);
+  if (searchParams.has('pin')) return <JoinGamePage />;
+  if (status === 'authenticated') return <AuthenticatedSidebarLayout><HomePage showHeader={false} /></AuthenticatedSidebarLayout>;
+  return <HomePage />;
 }
 
 function RequireAuth() {
@@ -60,5 +68,5 @@ function RequireAuth() {
   const location = useLocation();
   if (status === 'loading') return <main className="grid min-h-screen place-items-center text-neutral-600" role="status">Verificando sua sessão…</main>;
   if (status === 'unauthenticated') return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
-  return <><AuthenticatedHeader /><Outlet /></>;
+  return <AuthenticatedSidebarLayout><Outlet /></AuthenticatedSidebarLayout>;
 }

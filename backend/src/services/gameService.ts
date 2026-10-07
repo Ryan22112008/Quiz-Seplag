@@ -5,11 +5,12 @@ import type { GameRepository } from '../repositories/gameRepository.js';
 import type { QuizService } from './quizService.js';
 import type { RoomService } from './roomService.js';
 
-interface GameServiceDependencies { createId?: () => string; now?: () => string; nowMs?: () => number }
+interface GameServiceDependencies { createId?: () => string; now?: () => string; nowMs?: () => number; onFinished?: (game: Game) => Promise<void> }
 
 export class GameService {
   private readonly createId: () => string;
   private readonly nowMs: () => number;
+  private readonly onFinished: ((game: Game) => Promise<void>) | undefined;
 
   constructor(
     private readonly repository: GameRepository,
@@ -19,6 +20,7 @@ export class GameService {
   ) {
     this.createId = dependencies.createId ?? randomUUID;
     this.nowMs = dependencies.nowMs ?? (() => Date.parse(dependencies.now?.() ?? new Date().toISOString()));
+    this.onFinished = dependencies.onFinished;
   }
 
   private timestamp(): string { return new Date(this.nowMs()).toISOString(); }
@@ -145,7 +147,7 @@ export class GameService {
       const advanced = await this.repository.advanceAfterResults(game.id, game.currentQuestionIndex, game.currentQuestionId,
         nextQuestion?.id ?? null, new Date(nowMs).toISOString(), nextQuestion ? new Date(nowMs + nextQuestion.timeLimit * 1000).toISOString() : null,
         nextQuestion ? null : new Date(nowMs).toISOString());
-      if (advanced.status === 'FINISHED') await this.roomService.closeRoom(game.roomId);
+      if (advanced.status === 'FINISHED') { await this.onFinished?.(advanced); await this.roomService.closeRoom(game.roomId); }
       return this.publicState(advanced);
     } catch (error) {
       if (error instanceof DomainError && ['QUESTION_STATE_CHANGED', 'GAME_NOT_IN_PROGRESS'].includes(error.code)) return null;
@@ -232,6 +234,7 @@ export class GameService {
     const quiz = await this.quizService.getQuizById(game.quizId);
     if (game.currentQuestionIndex + 1 >= quiz.questions.length) {
       const finished = await this.repository.finishAfterQuestion(game.id, game.currentQuestionIndex, game.currentQuestionId, new Date(nowMs).toISOString());
+      await this.onFinished?.(finished);
       await this.roomService.closeRoom(game.roomId);
       return this.publicState(finished);
     }
@@ -248,6 +251,7 @@ export class GameService {
     if (!game) throw new DomainError('GAME_NOT_FOUND', 404, 'Ainda não existe uma partida para esta sala.');
     if (game.status === 'FINISHED') throw new DomainError('GAME_ALREADY_FINISHED', 409, 'Esta partida já foi finalizada.');
     const finished = await this.repository.finish(game.id, this.timestamp());
+    await this.onFinished?.(finished);
     await this.roomService.closeRoom(room.id);
     return this.publicState(finished);
   }

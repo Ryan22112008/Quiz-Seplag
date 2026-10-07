@@ -4,7 +4,7 @@ import { API_BASE_URL } from '@/config/environment';
 export interface AuthUser { id: string; name: string; email: string; avatarUrl: string | null }
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 interface AuthReply { user: AuthUser; csrfToken: string }
-interface AuthState { status: AuthStatus; user: AuthUser | null; csrfToken: string | null; initialize: () => Promise<void>; login: (email: string, password: string) => Promise<void>; register: (email: string, password: string) => Promise<void>; logout: () => Promise<void> }
+interface AuthState { status: AuthStatus; user: AuthUser | null; csrfToken: string | null; initialize: () => Promise<void>; login: (email: string, password: string) => Promise<void>; register: (email: string, password: string) => Promise<void>; requestPasswordReset: (email: string) => Promise<string>; resetPassword: (email: string, code: string, password: string) => Promise<void>; logout: () => Promise<void> }
 
 async function post<T>(path: string, body?: unknown, csrfToken?: string | null): Promise<T> {
   let response: Response;
@@ -29,6 +29,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   login: async (email, password) => set(acceptSession(await post<AuthReply>('/auth/login', { email, password }, get().csrfToken))),
   register: async (email, password) => set(acceptSession(await post<AuthReply>('/auth/register', { email, password }, get().csrfToken))),
+  requestPasswordReset: async (email) => (await post<{ message: string }>('/auth/password/forgot', { email })).message,
+  resetPassword: async (email, code, password) => { await post<void>('/auth/password/reset', { email, code, password }); },
   logout: async () => {
     const csrfToken = get().csrfToken;
     let response: Response;

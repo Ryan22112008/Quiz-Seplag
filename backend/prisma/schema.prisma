@@ -19,6 +19,7 @@ model Quiz {
   owner       User?      @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   questions   Question[]
   rooms       Room[]
+  reports     GameReport[]
   @@index([ownerId])
   @@index([ownerId, deletedAt])
 }
@@ -36,6 +37,7 @@ model User {
   quizzes   Quiz[]
   sessions  AuthSession[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model EmailVerificationToken {
@@ -45,6 +47,18 @@ model EmailVerificationToken {
   expiresAt           DateTime
   createdAt           DateTime @default(now())
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @db.Char(64)
+  userId    String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -110,8 +124,32 @@ model Room {
   updatedAt DateTime     @updatedAt
   quiz      Quiz         @relation(fields: [quizId], references: [id], onDelete: Restrict)
   players   RoomPlayer[]
+  reports   GameReport[]
 
   @@index([quizId])
+}
+
+model GameReport {
+  id                String   @id @db.VarChar(128)
+  quizId            String
+  roomId            String
+  roomPin           String   @db.Char(6)
+  startedAt         DateTime
+  finishedAt        DateTime
+  durationSeconds   Int
+  participantCount  Int
+  questionCount     Int
+  totalAnswers      Int
+  correctAnswers    Int
+  accuracyRate      Int
+  details           Json
+  deletedAt         DateTime?
+  createdAt         DateTime @default(now())
+  quiz              Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  room              Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([quizId, finishedAt])
+  @@index([deletedAt, finishedAt])
 }
 
 enum RoomStatus {

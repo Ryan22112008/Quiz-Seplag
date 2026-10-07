@@ -1,5 +1,6 @@
 import type { Quiz } from '@/types/quiz';
 import type { Room, RoomPlayer } from '@/types/room';
+import type { GameReport } from '@/types/report';
 import { API_BASE_URL } from '@/config/environment';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -43,6 +44,12 @@ export const api = {
   deleteQuiz: (id: string) => request<void>(`/quizzes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   restoreQuiz: (id: string) => request<void>(`/quizzes/${encodeURIComponent(id)}/restore`, { method: 'PATCH' }),
   permanentlyDeleteQuiz: (id: string) => request<void>(`/quizzes/${encodeURIComponent(id)}/permanent`, { method: 'DELETE' }),
+  getReports: () => request<GameReport[]>('/reports'),
+  getReportTrash: () => request<GameReport[]>('/reports/trash'),
+  getReport: (id: string) => request<GameReport>(`/reports/${encodeURIComponent(id)}`),
+  deleteReport: (id: string) => request<void>(`/reports/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  restoreReport: (id: string) => request<void>(`/reports/${encodeURIComponent(id)}/restore`, { method: 'PATCH' }),
+  permanentlyDeleteReport: (id: string) => request<void>(`/reports/${encodeURIComponent(id)}/permanent`, { method: 'DELETE' }),
   createRoom: (quizId: string) => request<CreatedApiRoom>('/rooms', { method: 'POST', body: JSON.stringify({ quizId }) }),
   getRoom: (pin: string) => request<ApiRoom>(`/rooms/${encodeURIComponent(pin)}`),
   getHostQuiz: (pin: string, hostToken: string) => request<Quiz>(`/rooms/${encodeURIComponent(pin)}/quiz`, { headers: { 'X-Host-Token': hostToken } }),
