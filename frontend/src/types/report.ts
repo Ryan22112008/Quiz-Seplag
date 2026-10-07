@@ -5,6 +5,7 @@ export interface GameReportQuestion {
 }
 export interface GameReportParticipant {
   id: string; name: string; position: number; score: number;
+  avatarCharacterId?: string; avatarAccessoryId?: string;
   answeredQuestions: number; correctAnswers: number; missedQuestions: number; completed: boolean;
 }
 export interface GameReport {

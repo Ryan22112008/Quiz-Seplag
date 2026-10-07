@@ -21,7 +21,7 @@ export type ServerEvent =
 /** Actions participants can send to a room. */
 export type ClientCommand =
   | { type: 'CREATE_ROOM'; payload: { quizId: string } }
-  | { type: 'JOIN_ROOM'; payload: { roomPin: string; playerName: string } }
+  | { type: 'JOIN_ROOM'; payload: { roomPin: string; playerName: string; avatarCharacterId?: string; avatarAccessoryId?: string } }
   | { type: 'SUBSCRIBE_GAME'; payload: { roomPin: string; playerId?: string; playerToken?: string; hostToken?: string } }
   | { type: 'LEAVE_ROOM'; payload: { roomPin: string; playerId?: string } }
   | { type: 'START_GAME'; payload: { roomPin: string } }

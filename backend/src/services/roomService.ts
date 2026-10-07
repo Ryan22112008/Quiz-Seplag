@@ -1,6 +1,6 @@
 import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { DomainError } from '../domain/errors.js';
-import type { RoomPlayer } from '../domain/player.js';
+import { AVATAR_ACCESSORY_IDS, AVATAR_CHARACTER_IDS, type RoomPlayer } from '../domain/player.js';
 import type { Room, RoomStatus } from '../domain/room.js';
 import type { RoomRepository } from '../repositories/roomRepository.js';
 import type { QuizService } from './quizService.js';
@@ -137,7 +137,7 @@ export class RoomService {
     return room;
   }
 
-  async joinRoom(pin: string, playerName: unknown): Promise<JoinedRoom> {
+  async joinRoom(pin: string, playerName: unknown, avatarCharacterId: unknown = 'bear', avatarAccessoryId: unknown = 'none'): Promise<JoinedRoom> {
     const room = await this.getRoomByPin(pin);
     if (room.status !== 'WAITING') {
       throw new DomainError('ROOM_NOT_JOINABLE', 409, 'Esta sala não está aceitando jogadores.');
@@ -149,7 +149,9 @@ export class RoomService {
       throw new DomainError('PLAYER_ALREADY_EXISTS', 409, 'Já existe um jogador com esse nome nesta sala.');
     }
 
-    const player: RoomPlayer = { id: this.createId(), name };
+    const characterId = typeof avatarCharacterId === 'string' && AVATAR_CHARACTER_IDS.includes(avatarCharacterId as typeof AVATAR_CHARACTER_IDS[number]) ? avatarCharacterId : 'bear';
+    const accessoryId = typeof avatarAccessoryId === 'string' && AVATAR_ACCESSORY_IDS.includes(avatarAccessoryId as typeof AVATAR_ACCESSORY_IDS[number]) ? avatarAccessoryId : 'none';
+    const player: RoomPlayer = { id: this.createId(), name, avatarCharacterId: characterId, avatarAccessoryId: accessoryId };
     const updatedRoom = await this.repository.addPlayer(room.id, player);
     const playerToken = randomBytes(32).toString('base64url');
     this.playerTokens.set(player.id, { roomId: room.id, token: playerToken });

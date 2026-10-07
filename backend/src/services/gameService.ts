@@ -216,7 +216,7 @@ export class GameService {
     const scores = new Map((await this.repository.listScores(game.id)).map((score) => [score.playerId, score]));
     const ranking = room.players.map((player) => {
       const score = scores.get(player.id);
-      return { playerId: player.id, playerName: player.name, score: score?.score ?? 0, answeredQuestions: score?.answeredQuestions ?? 0, correctAnswers: score?.correctAnswers ?? 0 };
+      return { playerId: player.id, playerName: player.name, avatarCharacterId: player.avatarCharacterId ?? 'bear', avatarAccessoryId: player.avatarAccessoryId ?? 'none', score: score?.score ?? 0, answeredQuestions: score?.answeredQuestions ?? 0, correctAnswers: score?.correctAnswers ?? 0 };
     });
     ranking.sort((a, b) => b.score - a.score || b.correctAnswers - a.correctAnswers ||
       a.playerName.localeCompare(b.playerName, 'pt-BR', { sensitivity: 'base' }) || a.playerId.localeCompare(b.playerId));

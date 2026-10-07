@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Home } from 'lucide-react';
+import { ArrowRight, Home, Pencil } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { ButtonLink } from '@/components/ui/ButtonLink';
@@ -14,6 +14,8 @@ import { api, toFrontendRoom } from '@/services/api/client';
 import { subscribeRoom } from '@/services/realtime/session';
 import { useRoomStore } from '@/stores/roomStore';
 import { useToastStore } from '@/components/ui/useToastStore';
+import { Avatar } from '@/components/ui/Avatar';
+import { AvatarPickerModal } from '@/components/game/AvatarPickerModal';
 import { useEffect, useState } from 'react';
 import { resolveRoomPin } from '@/lib/roomJoinUrl.mjs';
 
@@ -40,9 +42,13 @@ export function JoinGamePage() {
   const setIdentity = usePlayerStore((state) => state.setIdentity);
   const playerId = usePlayerStore((state) => state.playerId);
   const playerToken = usePlayerStore((state) => state.playerToken);
+  const avatarCharacterId = usePlayerStore((state) => state.avatarCharacterId);
+  const avatarAccessoryId = usePlayerStore((state) => state.avatarAccessoryId);
+  const setAvatar = usePlayerStore((state) => state.setAvatar);
   const existingRoomPin = usePlayerStore((state) => state.roomPin);
   const upsertRoom = useRoomStore((state) => state.upsertRoom);
   const [joining, setJoining] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
   const [validation, setValidation] = useState<{ pin: string; status: 'loading' | 'valid' | 'invalid'; message: string }>({ pin: '', status: 'loading', message: 'Verificando o PIN da sala…' });
   const roomValidation = validation.pin === pin ? validation.status : 'loading';
   const roomValidationMessage = validation.pin === pin ? validation.message : 'Verificando o PIN da sala…';
@@ -81,12 +87,14 @@ export function JoinGamePage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<JoinRoomValues>({
     resolver: zodResolver(joinRoomSchema),
     mode: 'onTouched',
     defaultValues: { playerName: '' },
   });
+  const enteredPlayerName = watch('playerName');
 
   const onValidSubmit = async (values: JoinRoomValues) => {
     if (roomValidation !== 'valid' || !pin || joining) return;
@@ -98,9 +106,9 @@ export function JoinGamePage() {
         navigate(`/jogar/${pin}/aguardando`);
         return;
       }
-      const joined = await api.joinRoom(pin, values.playerName.trim());
+      const joined = await api.joinRoom(pin, values.playerName.trim(), avatarCharacterId, avatarAccessoryId);
       upsertRoom(toFrontendRoom(joined.room));
-      setIdentity({ playerId: joined.player.id, roomId: joined.room.id, roomPin: pin, playerName: joined.player.name, playerToken: joined.playerToken });
+      setIdentity({ playerId: joined.player.id, roomId: joined.room.id, roomPin: pin, playerName: joined.player.name, playerToken: joined.playerToken, avatarCharacterId, avatarAccessoryId });
       await subscribeRoom(pin, joined.player.id, undefined, joined.playerToken);
       navigate(`/jogar/${pin}/aguardando`);
     } catch (error) {
@@ -160,6 +168,12 @@ export function JoinGamePage() {
               error={errors.playerName?.message}
               inputClassName="text-center"
             />
+            <div className="flex justify-center">
+              <button type="button" onClick={() => setAvatarOpen(true)} className="group flex items-center gap-3 rounded-xl border border-border bg-surface-muted px-4 py-2.5 text-left transition hover:border-primary-400 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
+                <span className="relative"><Avatar name="Seu avatar" size="md" characterId={avatarCharacterId} accessoryId={avatarAccessoryId} /><span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full bg-primary-600 text-white shadow-sm"><Pencil className="size-3" /></span></span>
+                <span><span className="block text-sm font-semibold text-neutral-900">Escolher avatar</span><span className="block text-xs text-neutral-500">Personalize como você aparece no jogo</span></span>
+              </button>
+            </div>
             <Button type="submit" size="lg" className="w-full" disabled={joining || roomValidation !== 'valid'}>
               {joining ? 'Entrando…' : 'Entrar na sala'}
               <ArrowRight className="size-4" aria-hidden="true" />
@@ -173,6 +187,7 @@ export function JoinGamePage() {
           </div>
         </CardContent>
       </Card>
+      <AvatarPickerModal open={avatarOpen} name={enteredPlayerName || 'Jogador'} characterId={avatarCharacterId} accessoryId={avatarAccessoryId} onClose={() => setAvatarOpen(false)} onSave={(characterId, accessoryId) => { setAvatar(characterId, accessoryId); setAvatarOpen(false); }} />
     </Container>
   );
 }

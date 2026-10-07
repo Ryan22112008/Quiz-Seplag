@@ -12,6 +12,8 @@ export interface GameReportQuestion {
 export interface GameReportParticipant {
   id: string;
   name: string;
+  avatarCharacterId?: string;
+  avatarAccessoryId?: string;
   position: number;
   score: number;
   answeredQuestions: number;

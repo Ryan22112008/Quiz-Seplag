@@ -18,6 +18,8 @@ export function RankingList({ entries, highlightPlayerId, emptyMessage = 'Nenhum
           key={entry.playerId}
           position={entry.position}
           name={entry.playerName}
+          avatarCharacterId={entry.avatarCharacterId}
+          avatarAccessoryId={entry.avatarAccessoryId}
           score={entry.score}
           highlighted={entry.playerId === highlightPlayerId}
         />

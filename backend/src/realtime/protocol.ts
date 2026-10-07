@@ -2,7 +2,7 @@ import type { PublicGameState, PublicRankingEntry } from '../domain/game.js';
 
 export type ClientCommand =
   | { type: 'CREATE_ROOM'; payload: { quizId: string } }
-  | { type: 'JOIN_ROOM'; payload: { roomPin: string; playerName: string } }
+  | { type: 'JOIN_ROOM'; payload: { roomPin: string; playerName: string; avatarCharacterId?: string; avatarAccessoryId?: string } }
   | { type: 'SUBSCRIBE_GAME'; payload: { roomPin: string; playerId?: string; playerToken?: string; hostToken?: string } }
   | { type: 'LEAVE_ROOM'; payload: { roomPin: string; playerId?: string } }
   | { type: 'START_GAME'; payload: { roomPin: string } }
@@ -14,10 +14,10 @@ export type ClientCommand =
   | { type: 'CLOSE_ROOM'; payload: { roomPin: string } };
 
 export type ServerEvent =
-  | { type: 'ROOM_CREATED'; payload: { room: { id: string; pin: string; quizId: string; status: 'waiting' | 'starting' | 'in-progress' | 'finished'; players: Array<{ id: string; name: string }> }; hostToken: string } }
+  | { type: 'ROOM_CREATED'; payload: { room: { id: string; pin: string; quizId: string; status: 'waiting' | 'starting' | 'in-progress' | 'finished'; players: Array<{ id: string; name: string; avatarCharacterId?: string; avatarAccessoryId?: string }> }; hostToken: string } }
   | { type: 'ROOM_SUBSCRIBED'; payload: { roomPin: string; role: 'host' | 'player'; playerToken?: string } }
   | { type: 'ROOM_SYNCED'; payload: { room: Extract<ServerEvent, { type: 'ROOM_CREATED' }>['payload']['room']; game: PublicGameState | null; ranking: PublicRankingEntry[]; hasAnsweredCurrentQuestion: boolean; questionEnded: boolean } }
-  | { type: 'PLAYER_JOINED'; payload: { roomPin: string; player: { id: string; name: string } } }
+  | { type: 'PLAYER_JOINED'; payload: { roomPin: string; player: { id: string; name: string; avatarCharacterId?: string; avatarAccessoryId?: string } } }
   | { type: 'PLAYER_LEFT'; payload: { roomPin: string; playerId: string } }
   | { type: 'GAME_STARTED'; payload: { quizId: string; roomPin: string; totalQuestions: number } }
   | { type: 'QUESTION_STARTED'; payload: { roomPin: string; questionId: string; questionIndex: number; endsAt: number; gameId: string; question: { questionId: string; questionIndex: number; text: string; imageUrl?: string; options: ReadonlyArray<{ id: string; text: string; imageUrl?: string }>; timeLimit: number; questionRevealAt: string; questionStartedAt: string; questionEndsAt: string }; questionStartedAt: string; questionEndsAt: string } }
@@ -55,7 +55,12 @@ export function parseCommand(raw: string): ClientCommand {
   const payload = value.payload;
   switch (value.type) {
     case 'CREATE_ROOM': exact(payload, ['quizId']); stringField(payload, 'quizId'); break;
-    case 'JOIN_ROOM': exact(payload, ['roomPin', 'playerName']); stringField(payload, 'roomPin'); stringField(payload, 'playerName'); break;
+    case 'JOIN_ROOM':
+      if (Object.keys(payload).some((key) => !['roomPin', 'playerName', 'avatarCharacterId', 'avatarAccessoryId'].includes(key))) invalidPayload();
+      stringField(payload, 'roomPin'); stringField(payload, 'playerName');
+      if ('avatarCharacterId' in payload) stringField(payload, 'avatarCharacterId');
+      if ('avatarAccessoryId' in payload) stringField(payload, 'avatarAccessoryId');
+      break;
     case 'SUBSCRIBE_GAME':
       if (Object.keys(payload).some((key) => !['roomPin', 'playerId', 'hostToken', 'playerToken'].includes(key)) ||
         (('playerId' in payload || 'playerToken' in payload) && 'hostToken' in payload) ||

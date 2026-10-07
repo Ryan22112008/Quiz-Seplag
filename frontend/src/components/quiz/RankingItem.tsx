@@ -7,6 +7,8 @@ export interface RankingItemProps {
   name: string;
   score: number;
   avatarSrc?: string | null;
+  avatarCharacterId?: string | null;
+  avatarAccessoryId?: string | null;
   highlighted?: boolean;
   streak?: number;
   className?: string;
@@ -19,7 +21,7 @@ const positionStyles: Record<number, string> = {
 };
 
 /** Single ranking row — visual only, no real leaderboard logic. */
-export function RankingItem({ position, name, score, avatarSrc, highlighted = false, streak, className }: RankingItemProps) {
+export function RankingItem({ position, name, score, avatarSrc, avatarCharacterId, avatarAccessoryId, highlighted = false, streak, className }: RankingItemProps) {
   return (
     <li
       aria-current={highlighted || undefined}
@@ -38,7 +40,7 @@ export function RankingItem({ position, name, score, avatarSrc, highlighted = fa
       >
         {position === 1 ? <Crown className="size-4" aria-hidden="true" /> : position}
       </span>
-      <Avatar name={name} src={avatarSrc} size="sm" />
+      <Avatar name={name} src={avatarSrc} characterId={avatarCharacterId} accessoryId={avatarAccessoryId} size="sm" />
       <span title={name} className="type-body min-w-0 flex-1 truncate font-medium text-neutral-900">
         {name}
         {streak !== undefined && streak > 1 && (

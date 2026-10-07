@@ -57,6 +57,8 @@ export interface PublicRankingEntry {
   position: number;
   playerId: string;
   playerName: string;
+  avatarCharacterId?: string;
+  avatarAccessoryId?: string;
   score: number;
   answeredQuestions: number;
   correctAnswers: number;

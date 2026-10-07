@@ -16,7 +16,7 @@ function cloneRoom(room: Room): Room { return { ...room, players: room.players.m
 const roomInclude = { players: { orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }] } } satisfies Prisma.RoomInclude;
 type RoomRow = Prisma.RoomGetPayload<{ include: typeof roomInclude }>;
 function mapRoom(row: RoomRow): Room {
-  return { id: row.id, pin: row.pin, quizId: row.quizId, status: row.status as Room['status'], players: row.players.map(({ id, name }) => ({ id, name })) };
+  return { id: row.id, pin: row.pin, quizId: row.quizId, status: row.status as Room['status'], players: row.players.map(({ id, name, avatarCharacterId, avatarAccessoryId }) => ({ id, name, avatarCharacterId, avatarAccessoryId })) };
 }
 
 export class PrismaRoomRepository implements RoomRepository {
@@ -50,7 +50,7 @@ export class PrismaRoomRepository implements RoomRepository {
       return await this.client.$transaction(async (tx) => {
         const aggregate = await tx.roomPlayer.aggregate({ where: { roomId }, _max: { position: true } });
         await tx.roomPlayer.create({ data: {
-          id: player.id, roomId, name: player.name, normalizedName: player.name.toLocaleLowerCase('pt-BR'),
+          id: player.id, roomId, name: player.name, normalizedName: player.name.toLocaleLowerCase('pt-BR'), avatarCharacterId: player.avatarCharacterId ?? 'bear', avatarAccessoryId: player.avatarAccessoryId ?? 'none',
           position: (aggregate._max.position ?? -1) + 1,
         } });
         return mapRoom(await tx.room.findUniqueOrThrow({ where: { id: roomId }, include: roomInclude }));

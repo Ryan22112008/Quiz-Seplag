@@ -62,7 +62,11 @@ export class RoomController {
 
   joinRoom: RequestHandler<RouteParams, unknown, JsonBody> = async (request, response, next) => {
     try {
-      const joined = await this.roomService.joinRoom(readRouteParam(request.params, 'pin'), readStringField(request.body, 'name'));
+      const body = request.body;
+      if (typeof body !== 'object' || body === null || Array.isArray(body) || Object.keys(body).some((key) => !['name', 'avatarCharacterId', 'avatarAccessoryId'].includes(key))) throw new DomainError('INVALID_PLAYER_NAME', 400, 'Informe os dados válidos do jogador.');
+      const record = body as Record<string, unknown>;
+      if (typeof record.name !== 'string') throw new DomainError('INVALID_PLAYER_NAME', 400, 'Informe um nome válido.');
+      const joined = await this.roomService.joinRoom(readRouteParam(request.params, 'pin'), record.name, record.avatarCharacterId, record.avatarAccessoryId);
       response.status(201).json(joined);
     } catch (error) {
       next(error);

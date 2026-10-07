@@ -1,5 +1,6 @@
 import type { ImgHTMLAttributes } from 'react';
 import { cn } from '@/lib/cn';
+import { accessoryEmoji, characterEmoji } from '@/lib/playerAvatarOptions';
 
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -7,6 +8,8 @@ export interface AvatarProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, '
   src?: string | null;
   name: string;
   size?: AvatarSize;
+  characterId?: string | null;
+  accessoryId?: string | null;
 }
 
 const sizes: Record<AvatarSize, string> = {
@@ -26,8 +29,9 @@ function initialsOf(name: string): string {
 }
 
 /** Avatar with image fallback to initials. Always carries an accessible label. */
-export function Avatar({ src, name, size = 'md', alt, className, ...rest }: AvatarProps) {
+export function Avatar({ src, name, size = 'md', alt, className, characterId, accessoryId, ...rest }: AvatarProps) {
   const label = alt ?? name;
+  const hasCharacter = Boolean(characterId);
   return (
     <span
       className={cn(
@@ -36,10 +40,15 @@ export function Avatar({ src, name, size = 'md', alt, className, ...rest }: Avat
         className,
       )}
       role={src ? undefined : 'img'}
-      aria-label={src ? undefined : label}
+      aria-label={src ? undefined : hasCharacter ? `${label}, avatar personalizado` : label}
     >
       {src ? (
         <img src={src} alt={label} loading="lazy" className="size-full object-cover" {...rest} />
+      ) : hasCharacter ? (
+        <span className="relative grid size-full place-items-center bg-gradient-to-br from-violet-300 to-indigo-400 text-[1.35em] leading-none" aria-hidden="true">
+          <span>{characterEmoji(characterId)}</span>
+          {accessoryEmoji(accessoryId) && <span className="absolute right-0.5 top-0.5 grid size-[0.72em] place-items-center rounded-full bg-white text-[0.58em] shadow-sm">{accessoryEmoji(accessoryId)}</span>}
+        </span>
       ) : (
         <span aria-hidden="true">{initialsOf(name)}</span>
       )}

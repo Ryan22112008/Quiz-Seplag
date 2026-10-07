@@ -1,6 +1,8 @@
 export interface RoomPlayer {
   id: string;
   name: string;
+  avatarCharacterId?: string;
+  avatarAccessoryId?: string;
 }
 
 export type RoomStatus = 'waiting' | 'starting' | 'in-progress' | 'finished';

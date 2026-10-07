@@ -163,6 +163,8 @@ model RoomPlayer {
   id           String   @id
   roomId       String
   name         String   @db.VarChar(24)
+  avatarCharacterId String @default("bear") @db.VarChar(24)
+  avatarAccessoryId String @default("none") @db.VarChar(24)
   normalizedName String @db.VarChar(24)
   position     Int
   createdAt    DateTime @default(now())

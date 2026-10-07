@@ -95,7 +95,7 @@ export class RealtimeHub {
       }
       case 'JOIN_ROOM': {
         this.requireUnbound(socket);
-        const joined = await this.services.roomService.joinRoom(command.payload.roomPin, command.payload.playerName);
+        const joined = await this.services.roomService.joinRoom(command.payload.roomPin, command.payload.playerName, command.payload.avatarCharacterId, command.payload.avatarAccessoryId);
         this.bind(socket, joined.room.pin, 'player', joined.player.id);
         this.broadcast(joined.room.pin, { type: 'PLAYER_JOINED', payload: { roomPin: joined.room.pin, player: joined.player } });
         this.send(socket, { type: 'ROOM_SUBSCRIBED', payload: { roomPin: joined.room.pin, role: 'player', playerToken: joined.playerToken } });
