@@ -70,9 +70,7 @@ export function HomePage({ showHeader = true }: { showHeader?: boolean } = {}) {
             <div className="grid items-start gap-10 lg:grid-cols-3 lg:gap-16">
               <div className="animate-fade-in flex flex-col gap-6 lg:col-span-2 lg:gap-8">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="primary">
-                    Quiz multiplayer em tempo real
-                  </Badge>
+                  
                 </div>
 
                 <h1 id="hero-title" className="type-display text-neutral-900 sm:text-5xl lg:text-6xl">

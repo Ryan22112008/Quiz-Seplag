@@ -73,7 +73,7 @@ export class AuthService {
   }
 
   async requestPasswordReset(emailInput: unknown): Promise<void> {
-    if (!this.config.resendApiKey) throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'A recuperação de senha ainda não está configurada para enviar e-mails.');
+    if (!this.config.resendApiKey) throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'O serviço de e-mail ainda não foi configurado neste servidor. O administrador precisa configurá-lo para liberar a recuperação de senha.');
     if (!validEmail(emailInput)) throw new DomainError('INVALID_CREDENTIALS', 400, 'Informe um endereço de e-mail válido.');
     const email = emailInput.trim().toLowerCase();
     const user = await this.db.user.findUnique({ where: { email }, select: { id: true, email: true, name: true, passwordHash: true } });

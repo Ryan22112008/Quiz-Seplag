@@ -5,6 +5,7 @@ import { ButtonLink } from '@/components/ui/ButtonLink';
 import { Input } from '@/components/ui/Input';
 import { API_BASE_URL } from '@/config/environment';
 import { useAuthStore } from '@/stores/authStore';
+import seplagLogo from '@/assets/logo-seplag-branco.png';
 
 type Mode = 'login' | 'register' | 'forgot';
 export function LoginPage() {
@@ -62,7 +63,7 @@ export function LoginPage() {
 
   return <main className="grid min-h-screen place-items-center bg-neutral-50 px-4 py-12">
     <section className="w-full max-w-md rounded-2xl border border-border bg-surface p-7 shadow-xl sm:p-9" aria-labelledby="auth-title">
-      <div className="mb-7 text-center"><ButtonLink to="/" variant="ghost" className="font-display text-2xl font-extrabold tracking-tight text-primary-700">QUIZ <span className="text-primary-500">SEPLAG</span></ButtonLink></div>
+      <div className="mb-7 flex justify-center"><ButtonLink to="/" variant="ghost" className="gap-2 font-display text-2xl font-extrabold tracking-tight text-primary-700"><img src={seplagLogo} alt="" className="size-10 shrink-0 object-contain" />QUIZ <span className="text-primary-500">SEPLAG</span></ButtonLink></div>
       <h1 id="auth-title" className="type-h2 text-center text-neutral-900">{mode === 'login' ? 'Fazer login' : mode === 'register' ? 'Criar conta' : 'Recuperar senha'}</h1>
       <p className="type-body mt-2 text-center text-neutral-600">{mode === 'login' ? 'Entre para criar e gerenciar seus quizzes.' : mode === 'register' ? 'Crie sua conta para começar a usar a plataforma.' : resetRequested ? 'Digite o código recebido e escolha uma nova senha.' : 'Informe o e-mail cadastrado para receber um código de verificação.'}</p>
       {params.get('error') === 'google_login_failed' && <p role="alert" className="mt-5 rounded-lg border border-danger-500/30 bg-danger-50 p-3 text-sm text-danger-700">Não foi possível entrar com o Google. Verifique as credenciais e tente novamente.</p>}
