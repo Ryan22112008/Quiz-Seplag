@@ -20,7 +20,7 @@ function copy(quiz: Quiz): Quiz {
 
 function mapQuiz(row: Prisma.QuizGetPayload<{ include: { questions: { include: { options: true } } } }>): Quiz {
   return {
-    id: row.id, title: row.title, category: row.category,
+    id: row.id, title: row.title, category: row.category, isDraft: row.isDraft,
     ...(row.description === null ? {} : { description: row.description }),
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
     questions: row.questions.sort((a, b) => a.position - b.position).map((q): Question => ({
@@ -37,7 +37,7 @@ export class PrismaQuizRepository implements QuizRepository {
   async create(quiz: Quiz, ownerId?: string): Promise<Quiz> {
     try {
       const row = await this.client.quiz.create({ data: {
-        id: quiz.id, ownerId: ownerId ?? null, title: quiz.title, description: quiz.description ?? null, category: quiz.category,
+        id: quiz.id, ownerId: ownerId ?? null, title: quiz.title, description: quiz.description ?? null, category: quiz.category, isDraft: quiz.isDraft ?? false,
         createdAt: new Date(quiz.createdAt), updatedAt: new Date(quiz.updatedAt),
         questions: { create: quiz.questions.map((q, position) => ({
           id: q.id, question: q.question, imageUrl: q.imageUrl ?? null, correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, revealTime: q.revealTime ?? 0, points: q.points, position,
@@ -85,7 +85,7 @@ export class PrismaQuizRepository implements QuizRepository {
         if (activeRooms) throw new DomainError('QUIZ_IN_USE', 409, 'Encerre as salas ativas antes de editar este quiz.');
         await tx.question.deleteMany({ where: { quizId: quiz.id } });
         return tx.quiz.update({ where: { id: quiz.id }, data: {
-          title: quiz.title, description: quiz.description ?? null, category: quiz.category, updatedAt: new Date(quiz.updatedAt),
+          title: quiz.title, description: quiz.description ?? null, category: quiz.category, isDraft: quiz.isDraft ?? false, updatedAt: new Date(quiz.updatedAt),
           questions: { create: quiz.questions.map((q, position) => ({
             id: q.id, question: q.question, imageUrl: q.imageUrl ?? null, correctOptionId: q.correctOptionId, timeLimit: q.timeLimit, revealTime: q.revealTime ?? 0, points: q.points, position,
             options: { create: q.options.map((o, optionPosition) => ({ id: o.id, text: o.text, imageUrl: o.imageUrl ?? null, position: optionPosition })) },

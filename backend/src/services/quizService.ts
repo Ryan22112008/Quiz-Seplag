@@ -25,7 +25,7 @@ export class QuizService {
     const original = ownerId ? await this.getOwnedQuizById(id, ownerId) : await this.getQuizById(id);
     const titleSuffix = ' (cópia)';
     const title = `${original.title.slice(0, 100 - titleSuffix.length)}${titleSuffix}`;
-    return this.createQuiz({ title, description: original.description, category: original.category, questions: original.questions }, ownerId);
+    return this.createQuiz({ title, description: original.description, category: original.category, questions: original.questions, isDraft: true }, ownerId);
   }
 
   listOwnedQuizzes(ownerId: string, deleted = false): Promise<Quiz[]> { return this.repository.findAllByOwner(ownerId, deleted); }
@@ -67,7 +67,7 @@ export class QuizService {
   }
 
   private normalizeQuiz(input: unknown, fixedId?: string, createdAt?: string): Quiz {
-    if (!isRecord(input) || !hasOnlyKeys(input, ['id', 'title', 'description', 'category', 'questions']) || !validOptionalId(input.id) || !text(input.title, 3, 100) || !text(input.category, 1, 80) ||
+    if (!isRecord(input) || !hasOnlyKeys(input, ['id', 'title', 'description', 'category', 'questions', 'isDraft']) || !validOptionalId(input.id) || (input.isDraft !== undefined && typeof input.isDraft !== 'boolean') || !text(input.title, 3, 100) || !text(input.category, 1, 80) ||
       (input.description !== undefined && !text(input.description, 0, 300)) || !Array.isArray(input.questions) || input.questions.length > 100) {
       throw new DomainError('INVALID_QUIZ', 400, 'Os dados do quiz são inválidos.');
     }
@@ -92,7 +92,7 @@ export class QuizService {
     });
     const timestamp = this.now();
     return {
-      id: fixedId ?? this.createId(), title: input.title.trim(), category: input.category.trim(), questions,
+      id: fixedId ?? this.createId(), title: input.title.trim(), category: input.category.trim(), questions, isDraft: input.isDraft === true,
       createdAt: createdAt ?? timestamp, updatedAt: timestamp,
       ...(typeof input.description === 'string' && input.description.trim() ? { description: input.description.trim() } : {}),
     };

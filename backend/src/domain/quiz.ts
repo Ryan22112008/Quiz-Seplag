@@ -15,6 +15,7 @@ export interface Quiz {
   description?: string;
   category: string;
   questions: Question[];
+  isDraft?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -9,7 +9,7 @@ Plataforma para criar quizzes, conduzir partidas ao vivo e acompanhar seus resul
 - Salas de partida com PIN, link ou QR Code. Para participar, o jogador precisa entrar na conta e pode escolher o nome que será exibido no jogo.
 - Partidas ao vivo, ranking durante o jogo e pódio final.
 - Avatares com personagens selecionáveis.
-- Biblioteca para organizar quizzes e relatórios de partidas com visão geral, participantes e perguntas.
+- Biblioteca para organizar quizzes, salvar rascunhos e consultar relatórios de partidas com visão geral, participantes e perguntas.
 - Recuperação de senha por código quando o envio de e-mail estiver configurado.
 
 ## Tecnologias

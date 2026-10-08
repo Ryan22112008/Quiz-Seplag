@@ -53,7 +53,7 @@ export function CreateQuizPage() {
     if (saving) return;
     setSaving(true);
     try {
-      const quiz = await api.createQuiz({ title: values.title.trim(), description: values.description?.trim(), category: values.category, questions: [] });
+      const quiz = await api.createQuiz({ title: values.title.trim(), description: values.description?.trim(), category: values.category, questions: [], isDraft: true });
       upsertQuiz(quiz);
       navigate(`/criar/${quiz.id}/perguntas`);
     } catch (error) {

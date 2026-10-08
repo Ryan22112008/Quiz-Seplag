@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Pencil, Trash2, ArrowLeft, Home, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowLeft, Home, X, Save } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { ButtonLink } from '@/components/ui/ButtonLink';
@@ -221,11 +221,24 @@ export function EditQuizQuestionsPage() {
     if (!quizId || !quiz || savingQuiz) return;
     setSavingQuiz(true);
     try {
-      const saved = await api.updateQuiz(quizId, { title: quiz.title, description: quiz.description, category: quiz.category, questions: quiz.questions });
+      const saved = await api.updateQuiz(quizId, { title: quiz.title, description: quiz.description, category: quiz.category, questions: quiz.questions, isDraft: false });
       upsertQuiz(saved);
       navigate(`/criar/${quizId}/revisar`);
     } catch (error) {
       useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível salvar o quiz', description: error instanceof Error ? error.message : 'Tente novamente.' });
+    } finally { setSavingQuiz(false); }
+  };
+
+  const saveDraft = async () => {
+    if (!quizId || !quiz || savingQuiz) return;
+    setSavingQuiz(true);
+    try {
+      const saved = await api.updateQuiz(quizId, { title: quiz.title, description: quiz.description, category: quiz.category, questions: quiz.questions, isDraft: true });
+      upsertQuiz(saved);
+      useToastStore.getState().push({ variant: 'success', title: 'Rascunho salvo', description: 'Você pode continuar editando este quiz pela Biblioteca.' });
+      navigate('/biblioteca');
+    } catch (error) {
+      useToastStore.getState().push({ variant: 'danger', title: 'Não foi possível salvar o rascunho', description: error instanceof Error ? error.message : 'Tente novamente.' });
     } finally { setSavingQuiz(false); }
   };
 
@@ -405,7 +418,11 @@ export function EditQuizQuestionsPage() {
           </div>
         )}
 
-        <div className="mt-8 flex justify-end">
+        <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          <Button size="lg" variant="outline" disabled={savingQuiz} onClick={() => void saveDraft()}>
+            <Save className="size-4" aria-hidden="true" />
+            {savingQuiz ? 'Salvando…' : 'Salvar rascunho'}
+          </Button>
           <Button size="lg" disabled={quiz.questions.length === 0 || savingQuiz} onClick={() => void saveAndContinue()}>
             {savingQuiz ? 'Salvando…' : 'Continuar'}
           </Button>
