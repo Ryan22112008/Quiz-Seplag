@@ -143,7 +143,7 @@ export function ReviewQuizPage() {
                     key={question.id}
                     className="flex items-start gap-3 rounded-lg border border-border p-4"
                   >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-display font-bold text-sm">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-800 font-display font-bold text-sm">
                       {String(index + 1).padStart(2, '0')}
                     </span>
                     <div className="min-w-0 flex-1">

@@ -28,7 +28,7 @@ export function Score({ value, label = 'Pontuação', size = 'md', highlight = f
         className={cn(
           'font-display font-bold tabular-nums',
           sizes[size],
-          highlight ? 'text-primary-700' : 'text-neutral-900',
+          highlight ? 'text-primary-800' : 'text-neutral-900',
         )}
       >
         {value.toLocaleString('pt-BR')}

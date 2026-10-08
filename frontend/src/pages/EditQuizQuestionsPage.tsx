@@ -141,7 +141,7 @@ function QuestionModal({ open, onClose, onSave, initialData }: QuestionModalProp
           <div className="flex flex-col gap-3">
             {formData.options.map((option, index) => (
               <div key={option.id} className="flex flex-wrap items-start gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-display font-bold">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-800 font-display font-bold">
                   {optionLabels[index]}
                 </div>
                 <div className="w-[calc(100%-3.25rem)] sm:min-w-40 sm:flex-1">
@@ -357,7 +357,7 @@ export function EditQuizQuestionsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-start gap-3 mb-3">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-display font-bold text-sm">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-800 font-display font-bold text-sm">
                           {String(index + 1).padStart(2, '0')}
                         </span>
                         <div className="min-w-0 flex-1">

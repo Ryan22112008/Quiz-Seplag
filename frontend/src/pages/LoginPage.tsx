@@ -63,7 +63,7 @@ export function LoginPage() {
 
   return <main className="grid min-h-screen place-items-center bg-neutral-50 px-4 py-12">
     <section className="w-full max-w-md rounded-2xl border border-border bg-surface p-7 shadow-xl sm:p-9" aria-labelledby="auth-title">
-      <div className="mb-7 flex justify-center"><ButtonLink to="/" variant="ghost" className="gap-2 font-display text-2xl font-extrabold tracking-tight text-primary-700"><img src={seplagLogo} alt="" className="size-10 shrink-0 object-contain" />QUIZ <span className="text-primary-500">SEPLAG</span></ButtonLink></div>
+      <div className="mb-7 flex justify-center"><ButtonLink to="/" variant="ghost" className="gap-2 font-display text-2xl font-extrabold tracking-tight text-primary-800"><img src={seplagLogo} alt="" className="size-10 shrink-0 object-contain" />QUIZ <span className="text-primary-500">SEPLAG</span></ButtonLink></div>
       <h1 id="auth-title" className="type-h2 text-center text-neutral-900">{mode === 'login' ? 'Fazer login' : mode === 'register' ? 'Criar conta' : 'Recuperar senha'}</h1>
       <p className="type-body mt-2 text-center text-neutral-600">{mode === 'login' ? 'Entre para criar e gerenciar seus quizzes.' : mode === 'register' ? 'Crie sua conta para começar a usar a plataforma.' : resetRequested ? 'Digite o código recebido e escolha uma nova senha.' : 'Informe o e-mail cadastrado para receber um código de verificação.'}</p>
       {params.get('error') === 'google_login_failed' && <p role="alert" className="mt-5 rounded-lg border border-danger-500/30 bg-danger-50 p-3 text-sm text-danger-700">Não foi possível entrar com o Google. Verifique as credenciais e tente novamente.</p>}
@@ -76,12 +76,12 @@ export function LoginPage() {
         {(mode === 'register' || (mode === 'forgot' && resetRequested)) && <Input label="Repita a nova senha" type="password" autoComplete="new-password" required minLength={10} maxLength={128} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />}
         <Button className="mt-1 w-full" type="submit" size="lg" disabled={busy}>{busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : resetRequested ? 'Redefinir senha' : 'Enviar código'}</Button>
       </form>
-      {mode === 'login' && <button type="button" className="mt-4 w-full text-center text-sm font-semibold text-primary-700 underline underline-offset-2" onClick={() => { setMode('forgot'); setError(''); setNotice(''); }}>Esqueci minha senha</button>}
+      {mode === 'login' && <button type="button" className="mt-4 w-full text-center text-sm font-semibold text-primary-800 underline underline-offset-2" onClick={() => { setMode('forgot'); setError(''); setNotice(''); }}>Esqueci minha senha</button>}
       {mode !== 'forgot' && googleEnabled && <>
         <div className="my-5 flex items-center gap-3 text-xs text-neutral-500"><span className="h-px flex-1 bg-border" />ou<span className="h-px flex-1 bg-border" /></div>
         <Button variant="outline" className="w-full" size="lg" onClick={googleLogin} disabled={busy}><span aria-hidden="true" className="font-bold">G</span>Entrar com o Google</Button>
       </>}
-      <p className="mt-6 text-center text-sm text-neutral-600">{mode === 'login' ? 'Ainda não tem conta?' : mode === 'register' ? 'Já tem conta?' : 'Lembrou sua senha?'}{' '}<button type="button" className="font-semibold text-primary-700 underline underline-offset-2" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setNotice(''); setResetRequested(false); setPassword(''); setConfirmation(''); }}>{mode === 'login' ? 'Criar conta' : 'Fazer login'}</button></p>
+      <p className="mt-6 text-center text-sm text-neutral-600">{mode === 'login' ? 'Ainda não tem conta?' : mode === 'register' ? 'Já tem conta?' : 'Lembrou sua senha?'}{' '}<button type="button" className="font-semibold text-primary-800 underline underline-offset-2" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setNotice(''); setResetRequested(false); setPassword(''); setConfirmation(''); }}>{mode === 'login' ? 'Criar conta' : 'Fazer login'}</button></p>
       <ButtonLink to="/" variant="ghost" className="mt-3 w-full justify-center">Voltar à página inicial</ButtonLink>
     </section>
   </main>;

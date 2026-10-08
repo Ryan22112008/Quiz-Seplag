@@ -59,7 +59,7 @@ export function PlayerGamePage() {
 
   if (game.status === 'finished') return (
     <Container size="lg" className="flex min-h-screen flex-col items-center justify-center gap-6 py-8 sm:py-12">
-      <div className="w-full text-center"><Trophy className="mx-auto mb-3 size-10 text-warning-500" aria-hidden="true" /><p className="type-caption font-semibold uppercase tracking-widest text-primary-700">Quiz SEPLAG</p><h1 className="type-h2 mt-1 text-neutral-900">Partida encerrada</h1></div>
+      <div className="w-full text-center"><Trophy className="mx-auto mb-3 size-10 text-warning-500" aria-hidden="true" /><p className="type-caption font-semibold uppercase tracking-widest text-primary-800">Quiz SEPLAG</p><h1 className="type-h2 mt-1 text-neutral-900">Partida encerrada</h1></div>
       <FinalPodium entries={game.ranking} animate={game.finalPresentation === 'animate'} />
       {(() => {
         const own = game.ranking.find((entry) => entry.playerId === player.playerId);
