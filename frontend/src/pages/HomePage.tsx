@@ -93,7 +93,7 @@ export function HomePage({ showHeader = true }: { showHeader?: boolean } = {}) {
                   </Button>
                   <a
                     href="#como-funciona"
-                    className="type-label inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-primary-700 underline-offset-4 transition-colors hover:bg-primary-50 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                    className="type-label inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-primary-800 underline-offset-4 transition-colors hover:bg-primary-50 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                   >
                     Ver como funciona
                     <ArrowRight className="size-4" aria-hidden="true" />

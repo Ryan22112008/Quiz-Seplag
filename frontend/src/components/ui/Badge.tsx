@@ -9,7 +9,7 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 const variants: Record<BadgeVariant, string> = {
   default: 'bg-neutral-100 text-neutral-700 ring-neutral-200',
-  primary: 'bg-primary-50 text-primary-700 ring-primary-200',
+  primary: 'bg-primary-50 text-primary-800 ring-primary-200',
   success: 'bg-success-50 text-success-700 ring-success-200',
   warning: 'bg-warning-50 text-warning-800 ring-warning-200',
   danger: 'bg-danger-50 text-danger-700 ring-danger-200',

@@ -8,17 +8,17 @@
   --font-display: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --color-primary-50: #171b32;
-  --color-primary-100: #20264a;
-  --color-primary-200: #30396c;
-  --color-primary-300: #626cf3;
-  --color-primary-400: #8990ff;
-  --color-primary-500: #747bff;
-  --color-primary-600: #6269f5;
-  --color-primary-700: #a3a8ff;
-  --color-primary-800: #c3c6ff;
-  --color-primary-900: #dfe1ff;
-  --color-primary-950: #f1f2ff;
+  --color-primary-50: #111c32;
+  --color-primary-100: #182b48;
+  --color-primary-200: #25416b;
+  --color-primary-300: #3e6fd1;
+  --color-primary-400: #5790f2;
+  --color-primary-500: #3478eb;
+  --color-primary-600: #2f6de0;
+  --color-primary-700: #2563d6;
+  --color-primary-800: #a9c7ff;
+  --color-primary-900: #d0e0ff;
+  --color-primary-950: #eff5ff;
 
   --color-accent-50: #10262c;
   --color-accent-100: #17383f;
@@ -231,7 +231,7 @@
     animation: podium-confetti 1100ms ease-out 1.7s both;
   }
 
-  .podium-confetti i:nth-child(2n) { background: #f9a8d4; }
+  .podium-confetti i:nth-child(2n) { background: #93c5fd; }
   .podium-confetti i:nth-child(3n) { background: #67e8f9; }
   .podium-confetti i:nth-child(1) { --confetti-x: -62px; --confetti-y: -44px; }
   .podium-confetti i:nth-child(2) { --confetti-x: -44px; --confetti-y: -68px; }

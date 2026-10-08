@@ -37,7 +37,7 @@ export function Avatar({ src, name, size = 'md', alt, className, characterId, ac
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 font-semibold text-primary-700 ring-1 ring-primary-200',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 font-semibold text-primary-800 ring-1 ring-primary-200',
         sizes[size],
         className,
       )}
@@ -47,7 +47,7 @@ export function Avatar({ src, name, size = 'md', alt, className, characterId, ac
       {src ? (
         <img src={src} alt={label} loading="lazy" className="size-full object-cover" {...rest} />
       ) : hasCharacter ? (
-        <span className="relative grid size-full place-items-center bg-gradient-to-br from-violet-300 to-indigo-400 text-[1.35em] leading-none" aria-hidden="true">
+        <span className="relative grid size-full place-items-center bg-gradient-to-br from-blue-300 to-blue-600 text-[1.35em] leading-none" aria-hidden="true">
           <span>{characterEmoji(characterId)}</span>
         </span>
       ) : (
