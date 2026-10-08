@@ -21,6 +21,8 @@ const statusMap: Record<GameStatusValue, { label: string; variant: BadgeVariant 
 
 /** Status pill for a game room. Visual only — no socket/state logic. */
 export function GameStatus({ status, className }: GameStatusProps) {
+  if (status === 'question') return null;
+
   const { label, variant } = statusMap[status];
   return (
     <Badge variant={variant} className={className} aria-label={`Status do jogo: ${label}`}>
