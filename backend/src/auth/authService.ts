@@ -9,7 +9,7 @@ const PASSWORD_COST = 1 << 14;
 const PASSWORD_KEY_LENGTH = 64;
 
 export interface PublicUser { id: string; name: string; email: string; avatarUrl: string | null }
-export interface AuthConfig { clientId: string; clientSecret: string; callbackUrl: string; frontendOrigin: string; allowedOrigins: string[]; secureCookies: boolean; sessionSecret: string; resendApiKey?: string; emailFrom?: string }
+export interface AuthConfig { clientId: string; clientSecret: string; callbackUrl: string; frontendOrigin: string; allowedOrigins: string[]; secureCookies: boolean; sessionSecret: string; resendApiKey?: string; emailFrom?: string; googleAuthMode?: 'mock' | 'google'; nodeEnv?: 'development' | 'production' | 'test' }
 export type GoogleIdentityClient = Pick<OAuth2Client, 'generateCodeVerifierAsync' | 'generateAuthUrl' | 'getToken' | 'verifyIdToken'>;
 
 function derivePassword(password: string, salt: Buffer): Promise<Buffer> {
@@ -42,9 +42,43 @@ export class AuthService {
     this.google = google ?? new OAuth2Client(config.clientId, config.clientSecret, config.callbackUrl);
   }
 
-  get googleEnabled(): boolean { return !!(this.config.clientId && this.config.clientSecret && this.config.callbackUrl); }
+  get googleEnabled(): boolean { return this.config.googleAuthMode === 'mock' || !!(this.config.clientId && this.config.clientSecret && this.config.callbackUrl); }
+  get googleMockEnabled(): boolean { return this.config.googleAuthMode === 'mock' && this.config.nodeEnv !== 'production'; }
   get frontendOrigin(): string { return this.config.frontendOrigin; }
   isAllowedOrigin(origin?: string): boolean { return !!origin && this.config.allowedOrigins.includes(origin); }
+
+  /** Accepts a browser mock only in local development; production always verifies Google's signature. */
+  async loginWithGoogleIdToken(idToken: unknown): Promise<{ user: PublicUser; sessionToken: string; csrfToken: string }> {
+    if (typeof idToken !== 'string' || idToken.length > 8192) throw new DomainError('INVALID_GOOGLE_TOKEN', 401, 'Token de autenticação inválido.');
+    let claims: { email?: unknown; name?: unknown; hd?: unknown; email_verified?: unknown; exp?: unknown; iss?: unknown };
+    if (this.googleMockEnabled) {
+      try {
+        const segments = idToken.split('.');
+        if (segments.length !== 3) throw new Error();
+        const header = JSON.parse(Buffer.from(segments[0]!, 'base64url').toString('utf8')) as { alg?: unknown; typ?: unknown };
+        claims = JSON.parse(Buffer.from(segments[1]!, 'base64url').toString('utf8')) as typeof claims;
+        if (header.alg !== 'none' || header.typ !== 'JWT' || typeof claims.exp !== 'number' || claims.exp * 1000 <= this.now().getTime() || claims.iss !== 'local-mock' || claims.email_verified !== true) throw new Error();
+      } catch { throw new DomainError('INVALID_GOOGLE_TOKEN', 401, 'Token de simulação inválido ou expirado.'); }
+    } else {
+      if (!this.googleEnabled) throw new DomainError('GOOGLE_OAUTH_NOT_CONFIGURED', 503, 'O login do Google ainda não foi configurado neste servidor.');
+      try {
+        const ticket = await this.google.verifyIdToken({ idToken, audience: this.config.clientId });
+        const payload = ticket.getPayload();
+        if (!payload || (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') || payload.email_verified !== true) throw new Error();
+        claims = payload;
+      } catch { throw new DomainError('INVALID_GOOGLE_TOKEN', 401, 'Token do Google inválido.'); }
+    }
+    if (typeof claims.email !== 'string' || !validEmail(claims.email)) throw new DomainError('INVALID_GOOGLE_TOKEN', 401, 'Token sem e-mail válido.');
+    const email = claims.email.trim().toLowerCase();
+    const emailDomain = email.split('@')[1];
+    if (emailDomain !== 'seplag.mt.gov.br' || (claims.hd !== undefined && claims.hd !== 'seplag.mt.gov.br')) {
+      throw new DomainError('ACCESS_DENIED', 403, 'Acesso permitido somente a contas institucionais @seplag.mt.gov.br.');
+    }
+    if (!this.googleMockEnabled && claims.email_verified !== true) throw new DomainError('INVALID_GOOGLE_TOKEN', 401, 'O Google não confirmou este endereço de e-mail.');
+    const user = await this.db.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, avatarUrl: true } });
+    if (!user) throw new DomainError('USER_NOT_REGISTERED', 403, 'Servidor não cadastrado no sistema.');
+    return { user, ...await this.createSession(user.id) };
+  }
 
   async register(emailInput: unknown, passwordInput: unknown): Promise<{ user: PublicUser; sessionToken: string; csrfToken: string }> {
     if (!validEmail(emailInput) || !validPassword(passwordInput)) throw new DomainError('INVALID_CREDENTIALS', 400, 'Informe um e-mail válido e uma senha de 10 a 128 caracteres.');
@@ -158,14 +192,14 @@ export class AuthService {
     const claims = ticket.getPayload();
     if (!claims || (claims.iss !== 'https://accounts.google.com' && claims.iss !== 'accounts.google.com') || claims.aud !== this.config.clientId || claims.exp * 1000 <= this.now().getTime() || claims.nonce !== attempt.nonce || claims.email_verified !== true || !claims.sub || !validEmail(claims.email)) throw new Error('INVALID_GOOGLE_IDENTITY');
 
+    if (claims.email.toLowerCase().split('@')[1] !== 'seplag.mt.gov.br' || (claims.hd && claims.hd !== 'seplag.mt.gov.br')) throw new DomainError('ACCESS_DENIED', 403, 'Acesso permitido somente a contas institucionais @seplag.mt.gov.br.');
     let user = await this.db.user.findUnique({ where: { googleId: claims.sub }, select: { id: true, name: true, email: true, avatarUrl: true } });
     if (!user) {
       const sameEmail = await this.db.user.findUnique({ where: { email: claims.email.toLowerCase() }, select: { id: true, googleId: true } });
+      if (!sameEmail) throw new DomainError('USER_NOT_REGISTERED', 403, 'Servidor não cadastrado no sistema.');
       if (sameEmail?.googleId && sameEmail.googleId !== claims.sub) throw new Error('GOOGLE_ACCOUNT_CONFLICT');
       try {
-        user = sameEmail
-          ? await this.db.user.update({ where: { id: sameEmail.id }, data: { googleId: claims.sub, emailVerifiedAt: this.now(), ...(claims.name ? { name: claims.name } : {}), avatarUrl: claims.picture ?? null }, select: { id: true, name: true, email: true, avatarUrl: true } })
-          : await this.db.user.create({ data: { googleId: claims.sub, email: claims.email.toLowerCase(), name: claims.name ?? displayNameFromEmail(claims.email), avatarUrl: claims.picture ?? null, emailVerifiedAt: this.now() }, select: { id: true, name: true, email: true, avatarUrl: true } });
+        user = await this.db.user.update({ where: { id: sameEmail.id }, data: { googleId: claims.sub, emailVerifiedAt: this.now(), ...(claims.name ? { name: claims.name } : {}), avatarUrl: claims.picture ?? null }, select: { id: true, name: true, email: true, avatarUrl: true } });
       } catch (error) { if (isUniqueConflict(error)) throw new Error('GOOGLE_ACCOUNT_CONFLICT'); throw error; }
     }
     return { user, ...await this.createSession(user.id), returnTo: attempt.returnTo };

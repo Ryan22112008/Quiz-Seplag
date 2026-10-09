@@ -6,6 +6,7 @@ export interface AppConfig {
   googleClientId: string;
   googleClientSecret: string;
   googleCallbackUrl: string;
+  googleAuthMode: 'mock' | 'google';
   secureCookies: boolean;
   sessionSecret: string;
   resendApiKey: string;

@@ -93,6 +93,12 @@ Os valores de exemplo estão em [`backend/.env.example`](backend/.env.example). 
 
 As variáveis `VITE_*` são incluídas no bundle público; nunca coloque segredos nelas. Consulte [`frontend/.env.example`](frontend/.env.example).
 
+### Login institucional simulado
+
+Em desenvolvimento, os exemplos de ambiente ativam `GOOGLE_AUTH_MODE=mock` no backend e `VITE_GOOGLE_AUTH_MODE=mock` no frontend. O botão de login monta uma credencial JWT fictícia (`servidor.teste@seplag.mt.gov.br`) e envia-a para `POST /auth/google`. O backend permite esse formato sem assinatura somente com `NODE_ENV=development` ou `test`, consulta o e-mail no banco e cria uma sessão apenas para uma conta previamente cadastrada. Para usar a demonstração, cadastre primeiro `servidor.teste@seplag.mt.gov.br` pela tela de cadastro ou pelo processo administrativo de carga de usuários.
+
+Para produção, configure `GOOGLE_AUTH_MODE=google`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e a URL de callback cadastrada no Google Cloud Console; remova `VITE_GOOGLE_AUTH_MODE=mock` do ambiente de build. O backend verifica a assinatura/audiência usando `google-auth-library`, exige e-mail verificado e domínio institucional, e recusa usuários ainda não cadastrados. O modo mock nunca valida identidade e não pode ser exposto em rede compartilhada.
+
 ## Comandos úteis
 
 Execute cada comando a partir da pasta correspondente (`frontend` ou `backend`).

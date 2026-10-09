@@ -43,6 +43,9 @@ export type DomainErrorCode =
   | 'EMAIL_DELIVERY_NOT_CONFIGURED'
   | 'PASSWORD_RESET_INVALID'
   | 'REPORT_NOT_FOUND'
+  | 'ACCESS_DENIED'
+  | 'USER_NOT_REGISTERED'
+  | 'INVALID_GOOGLE_TOKEN'
 
 export class DomainError extends Error {
   constructor(

@@ -13,6 +13,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const status = useAuthStore((state) => state.status);
   const login = useAuthStore((state) => state.login);
+  const loginGoogleToken = useAuthStore((state) => state.loginGoogleToken);
   const register = useAuthStore((state) => state.register);
   const requestPasswordReset = useAuthStore((state) => state.requestPasswordReset);
   const resetPassword = useAuthStore((state) => state.resetPassword);
@@ -26,11 +27,12 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const mockGoogle = import.meta.env.DEV && import.meta.env.VITE_GOOGLE_AUTH_MODE === 'mock';
   const params = new URLSearchParams(location.search);
   const returnToParam = params.get('returnTo');
   const returnTo = returnToParam?.startsWith('/') && !returnToParam.startsWith('//') ? returnToParam : '/';
 
-  useEffect(() => { void fetch(`${API_BASE_URL}/auth/providers`).then((response) => response.json()).then((data: { google?: boolean }) => setGoogleEnabled(data.google === true)).catch(() => setGoogleEnabled(false)); }, []);
+  useEffect(() => { if (mockGoogle) { setGoogleEnabled(true); return; } void fetch(`${API_BASE_URL}/auth/providers`).then((response) => response.json()).then((data: { google?: boolean }) => setGoogleEnabled(data.google === true)).catch(() => setGoogleEnabled(false)); }, [mockGoogle]);
   useEffect(() => { if (status === 'authenticated') navigate(returnTo, { replace: true }); }, [status, navigate, returnTo]);
 
   if (status === 'loading') return <main className="grid min-h-screen place-items-center text-neutral-600" role="status">Verificando sua sessão…</main>;
@@ -56,7 +58,18 @@ export function LoginPage() {
     finally { setBusy(false); }
   };
 
-  const googleLogin = () => {
+  const googleLogin = async () => {
+    if (mockGoogle) {
+      setBusy(true); setError('');
+      try {
+        const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=/gu, '').replace(/\+/gu, '-').replace(/\//gu, '_');
+        const now = Math.floor(Date.now() / 1000);
+        const credential = `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ iss: 'local-mock', email: 'servidor.teste@seplag.mt.gov.br', name: 'Servidor de Teste', hd: 'seplag.mt.gov.br', email_verified: true, iat: now, exp: now + 300 })}.`;
+        await loginGoogleToken(credential);
+      } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível concluir o login simulado.'); }
+      finally { setBusy(false); }
+      return;
+    }
     setBusy(true);
     window.location.assign(`${API_BASE_URL}/auth/google?returnTo=${encodeURIComponent(returnTo)}`);
   };
@@ -79,7 +92,7 @@ export function LoginPage() {
       {mode === 'login' && <button type="button" className="mt-4 w-full text-center text-sm font-semibold text-primary-800 underline underline-offset-2" onClick={() => { setMode('forgot'); setError(''); setNotice(''); }}>Esqueci minha senha</button>}
       {mode !== 'forgot' && googleEnabled && <>
         <div className="my-5 flex items-center gap-3 text-xs text-neutral-500"><span className="h-px flex-1 bg-border" />ou<span className="h-px flex-1 bg-border" /></div>
-        <Button variant="outline" className="w-full" size="lg" onClick={googleLogin} disabled={busy}><span aria-hidden="true" className="font-bold">G</span>Entrar com o Google</Button>
+        <Button variant="outline" className="w-full" size="lg" onClick={() => void googleLogin()} disabled={busy}><span aria-hidden="true" className="font-bold">G</span>{mockGoogle ? 'Simular login institucional' : 'Entrar com o Google'}</Button>
       </>}
       <p className="mt-6 text-center text-sm text-neutral-600">{mode === 'login' ? 'Ainda não tem conta?' : mode === 'register' ? 'Já tem conta?' : 'Lembrou sua senha?'}{' '}<button type="button" className="font-semibold text-primary-800 underline underline-offset-2" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setNotice(''); setResetRequested(false); setPassword(''); setConfirmation(''); }}>{mode === 'login' ? 'Criar conta' : 'Fazer login'}</button></p>
       <ButtonLink to="/" variant="ghost" className="mt-3 w-full justify-center">Voltar à página inicial</ButtonLink>

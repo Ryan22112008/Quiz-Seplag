@@ -24,7 +24,7 @@ import { createReportRoutes } from './reportRoutes.js';
 
 export const routes = Router();
 const config = loadConfig();
-export const authService = new AuthService(prisma, { clientId: config.googleClientId, clientSecret: config.googleClientSecret, callbackUrl: config.googleCallbackUrl, frontendOrigin: config.frontendUrl, allowedOrigins: config.frontendOrigins, secureCookies: config.secureCookies, sessionSecret: config.sessionSecret, resendApiKey: config.resendApiKey, emailFrom: config.emailFrom });
+export const authService = new AuthService(prisma, { clientId: config.googleClientId, clientSecret: config.googleClientSecret, callbackUrl: config.googleCallbackUrl, frontendOrigin: config.frontendUrl, allowedOrigins: config.frontendOrigins, secureCookies: config.secureCookies, sessionSecret: config.sessionSecret, resendApiKey: config.resendApiKey, emailFrom: config.emailFrom, googleAuthMode: config.googleAuthMode, nodeEnv: config.nodeEnv });
 routes.use(createAuthRoutes(authService));
 routes.use(healthRoutes);
 const quizRepository = new PrismaQuizRepository(prisma);

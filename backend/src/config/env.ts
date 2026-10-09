@@ -38,7 +38,6 @@ function readFrontendOrigins(value: string | undefined, nodeEnv: string): string
       return parsed.protocol !== 'https:' || isLoopbackHostname(parsed.hostname);
     })) throw new Error('FRONTEND_ORIGINS deve conter apenas origens HTTPS públicas em produção.');
   }
-
   return origins;
 }
 
@@ -47,6 +46,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
   if (!['development', 'production', 'test'].includes(nodeEnv)) {
     throw new Error('NODE_ENV deve ser development, production ou test.');
   }
+  const googleAuthMode = environment.GOOGLE_AUTH_MODE?.trim() || (nodeEnv === 'production' ? 'google' : 'mock');
+  if (googleAuthMode !== 'mock' && googleAuthMode !== 'google') throw new Error('GOOGLE_AUTH_MODE deve ser mock ou google.');
+  if (googleAuthMode === 'mock' && nodeEnv !== 'development' && nodeEnv !== 'test') throw new Error('O modo MOCK só pode ser usado em desenvolvimento ou teste.');
   if (nodeEnv === 'production') {
     if (!environment.DATABASE_URL) throw new Error('DATABASE_URL é obrigatório em produção.');
     let databaseUrl: URL;
@@ -72,6 +74,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     googleClientId: environment.GOOGLE_CLIENT_ID?.trim() ?? '',
     googleClientSecret: environment.GOOGLE_CLIENT_SECRET?.trim() ?? '',
     googleCallbackUrl,
+    googleAuthMode,
     secureCookies: nodeEnv === 'production',
     sessionSecret: environment.SESSION_SECRET?.trim() || environment.DATABASE_URL || 'development-only-session-secret-change-me',
     resendApiKey: environment.RESEND_API_KEY?.trim() ?? '',
