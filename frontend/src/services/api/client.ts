@@ -32,7 +32,7 @@ export const api = {
     try { response = await fetch(`${API_BASE_URL}/uploads`, { method: 'POST', credentials: 'include', headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {}, body: form }); }
     catch { throw new Error('Não foi possível enviar a imagem.'); }
     const data = await response.json().catch(() => null) as { imageUrl?: string; error?: { message?: string } } | null;
-    if (!response.ok || !data?.imageUrl) throw new Error(data?.error?.message ?? `O servidor não aceitou a imagem (HTTP ${response.status}).`);
+    if (!response.ok || !data?.imageUrl) throw new Error(data?.error?.message ?? `Não foi possível enviar a imagem (HTTP ${response.status}).`);
     return data.imageUrl;
   },
   createQuiz: (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>) => request<Quiz>('/quizzes', { method: 'POST', body: JSON.stringify(quiz) }),

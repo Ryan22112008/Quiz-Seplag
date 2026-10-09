@@ -8,7 +8,17 @@ export function createAuthRoutes(auth: AuthService) {
   router.get('/auth/providers', (_request, response) => response.set('Cache-Control', 'no-store').json({ google: auth.googleEnabled }));
   router.post('/auth/register', async (request, response, next) => {
     if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
-    try { const result = await auth.register(request.body?.email, request.body?.password); setSessionCookies(response, result, auth); response.status(201).set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken }); }
+    try { await auth.register(request.body?.email, request.body?.password); response.status(202).set('Cache-Control', 'no-store').json({ message: 'Enviamos um código para seu e-mail. Digite-o para confirmar a conta.' }); }
+    catch (error) { next(error); }
+  });
+  router.post('/auth/email/verify', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
+    try { const result = await auth.verifyEmail(request.body?.email, request.body?.code); setSessionCookies(response, result, auth); response.set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken }); }
+    catch (error) { next(error); }
+  });
+  router.post('/auth/email/resend', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
+    try { await auth.requestEmailVerification(request.body?.email); response.status(202).set('Cache-Control', 'no-store').json({ message: 'Se a conta existir e ainda não estiver confirmada, enviaremos um novo código.' }); }
     catch (error) { next(error); }
   });
   router.post('/auth/login', async (request, response, next) => {

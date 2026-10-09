@@ -20,7 +20,7 @@ Edite `backend/.env` e configure `DATABASE_URL` com as credenciais do MySQL. O e
 DATABASE_URL="mysql://USER:PASSWORD@localhost:3306/quiz_seplag"
 ```
 
-Para habilitar recuperação de senha por código, configure `RESEND_API_KEY` e `EMAIL_FROM` no ambiente do backend (no Render, nas variáveis de ambiente do serviço da API). No Resend, o remetente deve usar um domínio validado; `onboarding@resend.dev` serve apenas para testes permitidos pelo provedor. O código expira em 10 minutos e permite até cinco tentativas.
+Para habilitar confirmação de e-mail no cadastro e recuperação de senha por código, configure `RESEND_API_KEY` e `EMAIL_FROM` no ambiente da API (no Render, nas variáveis de ambiente do serviço `quiz-seplag-api`). `RESEND_API_KEY` é a chave secreta criada no Resend. `EMAIL_FROM` deve ser um remetente autorizado no Resend, por exemplo `Quiz SEPLAG <contas@seudominio.com>` após validar o domínio. O remetente de teste `onboarding@resend.dev` pode ser limitado pelo provedor. Os códigos expiram em 10 minutos e aceitam até cinco tentativas.
 
 Não versione `.env` nem credenciais. O Prisma Client lê `DATABASE_URL` e o backend só começa a escutar depois de conectar ao banco.
 
