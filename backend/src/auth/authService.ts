@@ -46,13 +46,13 @@ export class AuthService {
   get frontendOrigin(): string { return this.config.frontendOrigin; }
   isAllowedOrigin(origin?: string): boolean { return !!origin && this.config.allowedOrigins.includes(origin); }
 
-  async register(emailInput: unknown, passwordInput: unknown): Promise<{ user: PublicUser; sessionToken: string; csrfToken: string }> {
+  async register(emailInput: unknown, passwordInput: unknown): Promise<void> {
     if (!validEmail(emailInput) || !validPassword(passwordInput)) throw new DomainError('INVALID_CREDENTIALS', 400, 'Informe um e-mail válido e uma senha de 10 a 128 caracteres.');
     const email = emailInput.trim().toLowerCase();
     const passwordHash = await hashPassword(passwordInput);
     try {
-      const user = await this.db.user.create({ data: { email, name: displayNameFromEmail(email), passwordHash }, select: { id: true, name: true, email: true, avatarUrl: true } });
-      return { user, ...await this.createSession(user.id) };
+      const user = await this.db.user.create({ data: { email, name: displayNameFromEmail(email), passwordHash }, select: { id: true, email: true, name: true } });
+      await this.sendEmailVerification(user);
     } catch (error) {
       if (isUniqueConflict(error)) throw new DomainError('EMAIL_ALREADY_REGISTERED', 409, 'Este e-mail já está cadastrado. Entre ou use outro endereço.');
       throw error;
@@ -62,18 +62,82 @@ export class AuthService {
   async login(emailInput: unknown, passwordInput: unknown): Promise<{ user: PublicUser; sessionToken: string; csrfToken: string }> {
     if (!validEmail(emailInput) || !validPassword(passwordInput)) throw new DomainError('INVALID_CREDENTIALS', 401, 'E-mail ou senha inválidos.');
     const email = emailInput.trim().toLowerCase();
-    const user = await this.db.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, avatarUrl: true, passwordHash: true } });
+    const user = await this.db.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, avatarUrl: true, passwordHash: true, emailVerifiedAt: true } });
     if (!user?.passwordHash) {
       await derivePassword(passwordInput, Buffer.alloc(16));
       throw new DomainError('INVALID_CREDENTIALS', 401, 'E-mail ou senha inválidos.');
     }
     if (!await passwordMatches(passwordInput, user.passwordHash)) throw new DomainError('INVALID_CREDENTIALS', 401, 'E-mail ou senha inválidos.');
+    if (!user.emailVerifiedAt) throw new DomainError('EMAIL_NOT_VERIFIED', 403, 'Confirme seu e-mail antes de entrar. Use a opção para reenviar o código.');
     const { passwordHash: _passwordHash, ...publicUser } = user;
     return { user: publicUser, ...await this.createSession(user.id) };
   }
 
+  async requestEmailVerification(emailInput: unknown): Promise<void> {
+    if (!this.config.resendApiKey) throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'O envio de e-mails ainda não está configurado. Tente novamente mais tarde.');
+    if (!validEmail(emailInput)) throw new DomainError('INVALID_CREDENTIALS', 400, 'Informe um endereço de e-mail válido.');
+    const user = await this.db.user.findUnique({ where: { email: emailInput.trim().toLowerCase() }, select: { id: true, email: true, name: true, passwordHash: true, emailVerifiedAt: true } });
+    if (!user?.passwordHash || user.emailVerifiedAt) return;
+    await this.sendEmailVerification(user);
+  }
+
+  async verifyEmail(emailInput: unknown, codeInput: unknown): Promise<{ user: PublicUser; sessionToken: string; csrfToken: string }> {
+    if (!validEmail(emailInput) || typeof codeInput !== 'string' || !/^\d{6}$/u.test(codeInput)) throw new DomainError('EMAIL_VERIFICATION_INVALID', 400, 'Código inválido ou expirado. Confira os dados e tente novamente.');
+    const user = await this.db.user.findUnique({ where: { email: emailInput.trim().toLowerCase() }, select: { id: true, name: true, email: true, avatarUrl: true, emailVerifiedAt: true } });
+    if (!user) throw new DomainError('EMAIL_VERIFICATION_INVALID', 400, 'Código inválido ou expirado. Confira os dados e tente novamente.');
+    if (user.emailVerifiedAt) throw new DomainError('EMAIL_VERIFICATION_INVALID', 400, 'Este e-mail já foi confirmado. Entre com sua senha.');
+    const token = await this.db.emailVerificationToken.findFirst({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } });
+    if (!token || token.expiresAt <= this.now()) {
+      if (token) await this.db.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+      throw new DomainError('EMAIL_VERIFICATION_INVALID', 400, 'Código inválido ou expirado. Solicite um novo código.');
+    }
+    const expected = Buffer.from(token.id, 'hex');
+    const submitted = Buffer.from(this.verificationDigest(user.id, codeInput), 'hex');
+    if (token.attempts >= 5) {
+      await this.db.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+      throw new DomainError('EMAIL_VERIFICATION_INVALID', 400, 'Muitas tentativas. Solicite um novo código.');
+    }
+    if (expected.length !== submitted.length || !timingSafeEqual(expected, submitted)) {
+      const attempts = token.attempts + 1;
+      if (attempts >= 5) await this.db.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+      else await this.db.emailVerificationToken.update({ where: { id: token.id }, data: { attempts } });
+      throw new DomainError('EMAIL_VERIFICATION_INVALID', 400, attempts >= 5 ? 'Muitas tentativas. Solicite um novo código.' : 'Código inválido ou expirado. Confira os dados e tente novamente.');
+    }
+    await this.db.$transaction([
+      this.db.user.update({ where: { id: user.id }, data: { emailVerifiedAt: this.now() } }),
+      this.db.emailVerificationToken.deleteMany({ where: { userId: user.id } }),
+    ]);
+    return { user, ...await this.createSession(user.id) };
+  }
+
+  private async sendEmailVerification(user: { id: string; email: string; name: string }): Promise<void> {
+    if (!this.config.resendApiKey) throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'O envio de e-mails ainda não está configurado. Tente novamente mais tarde.');
+    const code = String(randomBytes(4).readUInt32BE() % 1_000_000).padStart(6, '0');
+    const expiresAt = new Date(this.now().getTime() + 10 * 60_000);
+    await this.db.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+    await this.db.emailVerificationToken.create({ data: { id: this.verificationDigest(user.id, code), userId: user.id, expiresAt } });
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.config.resendApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: this.config.emailFrom ?? 'Quiz SEPLAG <onboarding@resend.dev>',
+          to: [user.email],
+          subject: 'Confirme seu e-mail | Quiz SEPLAG',
+          text: `Olá, ${user.name}. Seu código para confirmar o e-mail é ${code}. Ele expira em 10 minutos.`,
+          html: `<p>Olá, ${escapeHtml(user.name)}.</p><p>Use este código para confirmar seu e-mail no Quiz SEPLAG:</p><p style="font-size:28px;font-weight:bold;letter-spacing:8px">${code}</p><p>O código expira em 10 minutos.</p>`,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error('EMAIL_PROVIDER_REJECTED');
+    } catch {
+      await this.db.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+      throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'Não foi possível enviar o e-mail agora. Confira o endereço e tente novamente mais tarde.');
+    }
+  }
+
   async requestPasswordReset(emailInput: unknown): Promise<void> {
-    if (!this.config.resendApiKey) throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'O serviço de e-mail ainda não foi configurado neste servidor. O administrador precisa configurá-lo para liberar a recuperação de senha.');
+    if (!this.config.resendApiKey) throw new DomainError('EMAIL_DELIVERY_NOT_CONFIGURED', 503, 'A recuperação por e-mail ainda não está disponível. Tente novamente mais tarde.');
     if (!validEmail(emailInput)) throw new DomainError('INVALID_CREDENTIALS', 400, 'Informe um endereço de e-mail válido.');
     const email = emailInput.trim().toLowerCase();
     const user = await this.db.user.findUnique({ where: { email }, select: { id: true, email: true, name: true, passwordHash: true } });
@@ -127,14 +191,14 @@ export class AuthService {
     }
     const passwordHash = await hashPassword(passwordInput);
     await this.db.$transaction([
-      this.db.user.update({ where: { id: user.id }, data: { passwordHash } }),
+      this.db.user.update({ where: { id: user.id }, data: { passwordHash, emailVerifiedAt: this.now() } }),
       this.db.authSession.deleteMany({ where: { userId: user.id } }),
       this.db.passwordResetToken.deleteMany({ where: { userId: user.id } }),
     ]);
   }
 
   async createAuthorizationUrl(returnTo = '/'): Promise<{ url: string; state: string }> {
-    if (!this.googleEnabled) throw new DomainError('GOOGLE_OAUTH_NOT_CONFIGURED', 503, 'O login do Google ainda não foi configurado neste servidor.');
+    if (!this.googleEnabled) throw new DomainError('GOOGLE_OAUTH_NOT_CONFIGURED', 503, 'O login com Google ainda não está disponível.');
     let safeReturnTo = '/';
     try { const parsed = new URL(returnTo, this.config.frontendOrigin); if (returnTo.startsWith('/') && !returnTo.startsWith('//') && parsed.origin === this.config.frontendOrigin) safeReturnTo = returnTo.slice(0, 500); } catch { /* Use the home page for invalid return destinations. */ }
     const state = randomToken();
@@ -189,6 +253,7 @@ export class AuthService {
   }
   private sessionDigest(token: string): string { return digest(token, this.config.sessionSecret); }
   private resetDigest(userId: string, code: string): string { return digest(`password-reset:${userId}:${code}`, this.config.sessionSecret); }
+  private verificationDigest(userId: string, code: string): string { return digest(`email-verification:${userId}:${code}`, this.config.sessionSecret); }
   cookieOptions() { return { httpOnly: true, secure: this.config.secureCookies, sameSite: this.config.secureCookies ? 'none' as const : 'lax' as const, path: '/', maxAge: 30 * 24 * 60 * 60_000 }; }
   clearCookieOptions() { return { httpOnly: true, secure: this.config.secureCookies, sameSite: this.config.secureCookies ? 'none' as const : 'lax' as const, path: '/' }; }
 }

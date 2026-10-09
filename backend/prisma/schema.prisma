@@ -46,6 +46,7 @@ model EmailVerificationToken {
   id                  String   @id @db.Char(64)
   userId              String
   pendingPasswordHash String?  @db.VarChar(255)
+  attempts            Int      @default(0)
   expiresAt           DateTime
   createdAt           DateTime @default(now())
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
