@@ -66,6 +66,10 @@ export function LoginPage() {
   };
 
   const googleLogin = async () => {
+    if (!googleEnabled && !mockGoogle) {
+      setError('O login com Google ainda não foi configurado neste servidor.');
+      return;
+    }
     if (mockGoogle) {
       setBusy(true); setError('');
       try {
@@ -89,7 +93,7 @@ export function LoginPage() {
       {params.get('error') === 'google_login_failed' && <p role="alert" className="mt-5 rounded-lg border border-danger-500/30 bg-danger-50 p-3 text-sm text-danger-700">Não foi possível entrar com o Google. Verifique as credenciais e tente novamente.</p>}
       {error && <p role="alert" className="mt-5 rounded-lg border border-danger-500/30 bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
       {notice && <p role="status" className="mt-5 rounded-lg border border-primary-500/30 bg-primary-50 p-3 text-sm text-primary-800">{notice}</p>}
-      {mode !== 'forgot' && mode !== 'verify' && googleEnabled && <>
+      {mode !== 'forgot' && mode !== 'verify' && <>
         <Button variant="outline" className="mt-6 w-full" size="lg" onClick={() => void googleLogin()} disabled={busy}>
           <svg aria-hidden="true" viewBox="0 0 48 48" className="size-5"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.72 7.18l7.66 5.95c4.47-4.13 7.1-10.21 7.1-17.6Z"/><path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19Z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.85l-7.67-5.95c-2.13 1.43-4.87 2.27-8.23 2.27-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z"/></svg>
           {mockGoogle ? 'Login institucional via Google (simulação)' : 'Continuar com o Google'}
