@@ -25,16 +25,16 @@ export function LoginPage() {
   const [resetCode, setResetCode] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [resetRequested, setResetRequested] = useState(false);
-  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(import.meta.env.DEV);
+  const [mockGoogle, setMockGoogle] = useState(import.meta.env.DEV && import.meta.env.VITE_GOOGLE_AUTH_MODE !== 'google');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const mockGoogle = import.meta.env.DEV && import.meta.env.VITE_GOOGLE_AUTH_MODE === 'mock';
   const params = new URLSearchParams(location.search);
   const returnToParam = params.get('returnTo');
   const returnTo = returnToParam?.startsWith('/') && !returnToParam.startsWith('//') ? returnToParam : '/';
 
-  useEffect(() => { if (mockGoogle) { setGoogleEnabled(true); return; } void fetch(`${API_BASE_URL}/auth/providers`).then((response) => response.json()).then((data: { google?: boolean }) => setGoogleEnabled(data.google === true)).catch(() => setGoogleEnabled(false)); }, [mockGoogle]);
+  useEffect(() => { void fetch(`${API_BASE_URL}/auth/providers`).then((response) => response.json()).then((data: { google?: boolean; mock?: boolean }) => { setGoogleEnabled(data.google === true); setMockGoogle(import.meta.env.DEV && data.mock === true); }).catch(() => { if (!import.meta.env.DEV) setGoogleEnabled(false); }); }, []);
   useEffect(() => { if (status === 'authenticated') navigate(returnTo, { replace: true }); }, [status, navigate, returnTo]);
 
   if (status === 'loading') return <main className="grid min-h-screen place-items-center text-neutral-600" role="status">Verificando sua sessão…</main>;
@@ -89,6 +89,13 @@ export function LoginPage() {
       {params.get('error') === 'google_login_failed' && <p role="alert" className="mt-5 rounded-lg border border-danger-500/30 bg-danger-50 p-3 text-sm text-danger-700">Não foi possível entrar com o Google. Verifique as credenciais e tente novamente.</p>}
       {error && <p role="alert" className="mt-5 rounded-lg border border-danger-500/30 bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
       {notice && <p role="status" className="mt-5 rounded-lg border border-primary-500/30 bg-primary-50 p-3 text-sm text-primary-800">{notice}</p>}
+      {mode !== 'forgot' && mode !== 'verify' && googleEnabled && <>
+        <Button variant="outline" className="mt-6 w-full" size="lg" onClick={() => void googleLogin()} disabled={busy}>
+          <svg aria-hidden="true" viewBox="0 0 48 48" className="size-5"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.72 7.18l7.66 5.95c4.47-4.13 7.1-10.21 7.1-17.6Z"/><path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19Z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.85l-7.67-5.95c-2.13 1.43-4.87 2.27-8.23 2.27-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z"/></svg>
+          {mockGoogle ? 'Login institucional via Google (simulação)' : 'Continuar com o Google'}
+        </Button>
+        <div className="mt-5 flex items-center gap-3 text-xs text-neutral-500"><span className="h-px flex-1 bg-border" />ou entre com e-mail e senha<span className="h-px flex-1 bg-border" /></div>
+      </>}
       <form className="mt-6 flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
         <Input label="E-mail" type="email" autoComplete="email" required maxLength={191} value={email} onChange={(event) => setEmail(event.target.value)} readOnly={(mode === 'forgot' && resetRequested) || mode === 'verify'} />
         {mode === 'verify' && <Input label="Código de confirmação" type="text" inputMode="numeric" autoComplete="one-time-code" required minLength={6} maxLength={6} pattern="[0-9]{6}" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/gu, '').slice(0, 6))} helperText="O código expira em 10 minutos." />}
@@ -98,10 +105,6 @@ export function LoginPage() {
         <Button className="mt-1 w-full" type="submit" size="lg" disabled={busy}>{busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : mode === 'verify' ? 'Confirmar e entrar' : resetRequested ? 'Redefinir senha' : 'Enviar código'}</Button>
       </form>
       {mode === 'login' && <button type="button" className="mt-4 w-full text-center text-sm font-semibold text-primary-800 underline underline-offset-2" onClick={() => { setMode('forgot'); setError(''); setNotice(''); }}>Esqueci minha senha</button>}
-      {mode !== 'forgot' && mode !== 'verify' && googleEnabled && <>
-        <div className="my-5 flex items-center gap-3 text-xs text-neutral-500"><span className="h-px flex-1 bg-border" />ou<span className="h-px flex-1 bg-border" /></div>
-        <Button variant="outline" className="w-full" size="lg" onClick={() => void googleLogin()} disabled={busy}><span aria-hidden="true" className="font-bold">G</span>{mockGoogle ? 'Simular login institucional' : 'Entrar com o Google'}</Button>
-      </>}
       {mode !== 'verify' && <p className="mt-6 text-center text-sm text-neutral-600">{mode === 'login' ? 'Ainda não tem conta?' : mode === 'register' ? 'Já tem conta?' : 'Lembrou sua senha?'}{' '}<button type="button" className="font-semibold text-primary-800 underline underline-offset-2" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setNotice(''); setResetRequested(false); setPassword(''); setConfirmation(''); }}>{mode === 'login' ? 'Criar conta' : 'Fazer login'}</button></p>}
       {mode === 'verify' && <button type="button" className="mt-6 w-full text-center text-sm font-semibold text-primary-800 underline underline-offset-2" onClick={() => { setMode('login'); setError(''); setNotice(''); setVerificationCode(''); }}>Voltar para entrar</button>}
       <ButtonLink to="/" variant="ghost" className="mt-3 w-full justify-center">Voltar à página inicial</ButtonLink>

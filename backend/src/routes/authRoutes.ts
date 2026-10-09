@@ -5,7 +5,7 @@ import { CSRF_COOKIE, readCookie, requireAuth, SESSION_COOKIE } from '../auth/mi
 const OAUTH_STATE_COOKIE = 'quiz_oauth_state';
 export function createAuthRoutes(auth: AuthService) {
   const router = Router();
-  router.get('/auth/providers', (_request, response) => response.set('Cache-Control', 'no-store').json({ google: auth.googleEnabled }));
+  router.get('/auth/providers', (_request, response) => response.set('Cache-Control', 'no-store').json({ google: auth.googleEnabled, mock: auth.googleMockEnabled }));
   router.post('/auth/register', async (request, response, next) => {
     if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
     try { await auth.register(request.body?.email, request.body?.password); response.status(202).set('Cache-Control', 'no-store').json({ message: 'Enviamos um código para seu e-mail. Digite-o para confirmar a conta.' }); }
