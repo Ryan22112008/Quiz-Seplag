@@ -15,7 +15,6 @@ export function LoginPage() {
   const login = useAuthStore((state) => state.login);
   const register = useAuthStore((state) => state.register);
   const verifyEmail = useAuthStore((state) => state.verifyEmail);
-  const resendEmailVerification = useAuthStore((state) => state.resendEmailVerification);
   const requestPasswordReset = useAuthStore((state) => state.requestPasswordReset);
   const resetPassword = useAuthStore((state) => state.resetPassword);
   const [mode, setMode] = useState<Mode>('login');
@@ -86,7 +85,6 @@ export function LoginPage() {
         <Button className="mt-1 w-full" type="submit" size="lg" disabled={busy}>{busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : mode === 'verify' ? 'Confirmar e entrar' : resetRequested ? 'Redefinir senha' : 'Enviar código'}</Button>
       </form>
       {mode === 'login' && <button type="button" className="mt-4 w-full text-center text-sm font-semibold text-primary-800 underline underline-offset-2" onClick={() => { setMode('forgot'); setError(''); setNotice(''); }}>Esqueci minha senha</button>}
-      {(mode === 'login' || mode === 'verify') && <button type="button" className="mt-3 w-full text-center text-sm font-semibold text-primary-800 underline underline-offset-2 disabled:opacity-50" disabled={busy || !email} onClick={() => { setBusy(true); setError(''); void resendEmailVerification(email).then(setNotice).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'Não foi possível enviar o código.')).finally(() => setBusy(false)); }}>Reenviar código de confirmação</button>}
       {mode !== 'forgot' && mode !== 'verify' && googleEnabled && <>
         <div className="my-5 flex items-center gap-3 text-xs text-neutral-500"><span className="h-px flex-1 bg-border" />ou<span className="h-px flex-1 bg-border" /></div>
         <Button variant="outline" className="w-full" size="lg" onClick={googleLogin} disabled={busy}><span aria-hidden="true" className="font-bold">G</span>Entrar com o Google</Button>
