@@ -62,13 +62,12 @@ export class AuthService {
   async login(emailInput: unknown, passwordInput: unknown): Promise<{ user: PublicUser; sessionToken: string; csrfToken: string }> {
     if (!validEmail(emailInput) || !validPassword(passwordInput)) throw new DomainError('INVALID_CREDENTIALS', 401, 'E-mail ou senha inválidos.');
     const email = emailInput.trim().toLowerCase();
-    const user = await this.db.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, avatarUrl: true, passwordHash: true, emailVerifiedAt: true } });
+    const user = await this.db.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, avatarUrl: true, passwordHash: true } });
     if (!user?.passwordHash) {
       await derivePassword(passwordInput, Buffer.alloc(16));
       throw new DomainError('INVALID_CREDENTIALS', 401, 'E-mail ou senha inválidos.');
     }
     if (!await passwordMatches(passwordInput, user.passwordHash)) throw new DomainError('INVALID_CREDENTIALS', 401, 'E-mail ou senha inválidos.');
-    if (!user.emailVerifiedAt) throw new DomainError('EMAIL_NOT_VERIFIED', 403, 'Confirme seu e-mail antes de entrar. Use a opção para reenviar o código.');
     const { passwordHash: _passwordHash, ...publicUser } = user;
     return { user: publicUser, ...await this.createSession(user.id) };
   }
