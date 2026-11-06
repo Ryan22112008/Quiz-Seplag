@@ -8,6 +8,4 @@ export interface AppConfig {
   googleCallbackUrl: string;
   secureCookies: boolean;
   sessionSecret: string;
-  resendApiKey: string;
-  emailFrom: string;
 }

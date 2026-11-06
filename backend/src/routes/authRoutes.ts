@@ -8,32 +8,12 @@ export function createAuthRoutes(auth: AuthService) {
   router.get('/auth/providers', (_request, response) => response.set('Cache-Control', 'no-store').json({ google: auth.googleEnabled }));
   router.post('/auth/register', async (request, response, next) => {
     if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
-    try { await auth.register(request.body?.email, request.body?.password); response.status(202).set('Cache-Control', 'no-store').json({ message: 'Enviamos um código para seu e-mail. Digite-o para confirmar a conta.' }); }
-    catch (error) { next(error); }
-  });
-  router.post('/auth/email/verify', async (request, response, next) => {
-    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
-    try { const result = await auth.verifyEmail(request.body?.email, request.body?.code); setSessionCookies(response, result, auth); response.set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken }); }
-    catch (error) { next(error); }
-  });
-  router.post('/auth/email/resend', async (request, response, next) => {
-    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
-    try { await auth.requestEmailVerification(request.body?.email); response.status(202).set('Cache-Control', 'no-store').json({ message: 'Se a conta existir e ainda não estiver confirmada, enviaremos um novo código.' }); }
+    try { const result = await auth.register(request.body?.email, request.body?.password); setSessionCookies(response, result, auth); response.status(201).set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken }); }
     catch (error) { next(error); }
   });
   router.post('/auth/login', async (request, response, next) => {
     if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
     try { const result = await auth.login(request.body?.email, request.body?.password); setSessionCookies(response, result, auth); response.set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken }); }
-    catch (error) { next(error); }
-  });
-  router.post('/auth/password/forgot', async (request, response, next) => {
-    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
-    try { await auth.requestPasswordReset(request.body?.email); response.status(202).set('Cache-Control', 'no-store').json({ message: 'Se houver uma conta com esse e-mail, enviaremos um código para redefinir sua senha.' }); }
-    catch (error) { next(error); }
-  });
-  router.post('/auth/password/reset', async (request, response, next) => {
-    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
-    try { await auth.resetPassword(request.body?.email, request.body?.code, request.body?.password); response.status(204).set('Cache-Control', 'no-store').send(); }
     catch (error) { next(error); }
   });
   router.get('/auth/google', async (request, response, next) => {

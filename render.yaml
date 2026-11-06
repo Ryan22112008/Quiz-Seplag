@@ -30,10 +30,6 @@ services:
         sync: false
       - key: SESSION_SECRET
         sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
 
   - type: web
     name: quiz-seplag-web

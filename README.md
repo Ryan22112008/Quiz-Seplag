@@ -10,7 +10,6 @@ Plataforma para criar quizzes, conduzir partidas ao vivo e acompanhar seus resul
 - Partidas ao vivo, ranking durante o jogo e pódio final.
 - Avatares com personagens selecionáveis.
 - Biblioteca para organizar quizzes, salvar rascunhos e consultar relatórios de partidas com visão geral, participantes e perguntas.
-- Recuperação de senha por código quando o envio de e-mail estiver configurado.
 
 ## Tecnologias
 
@@ -79,7 +78,6 @@ Abra o endereço informado pelo Vite, normalmente `http://localhost:5173`.
 | `SESSION_SECRET` | Segredo para assinatura das sessões; configure um valor aleatório forte em produção. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Credenciais OAuth do Google; necessárias somente para habilitar esse login. |
 | `GOOGLE_CALLBACK_URL` | URL de retorno OAuth cadastrada no Google. Em produção, deve usar HTTPS. |
-| `RESEND_API_KEY`, `EMAIL_FROM` | Configuração opcional de envio de códigos para recuperação de senha. |
 | `UPLOADS_DIR` | Diretório para arquivos enviados; o backend usa `uploads` por padrão. |
 
 Os valores de exemplo estão em [`backend/.env.example`](backend/.env.example). Não publique arquivos `.env`, senhas, chaves OAuth ou tokens.
@@ -119,7 +117,7 @@ Antes de disponibilizar o serviço:
 3. Configure `VITE_API_URL` e `VITE_WS_URL` com os endereços HTTPS e WSS da API.
 4. Use HTTPS/WSS e configure `SESSION_SECRET` com um segredo forte.
 5. Mantenha uma única instância da API: o estado das partidas em andamento e das conexões em tempo real fica em memória.
-6. Configure Google OAuth e Resend somente se esses recursos forem usados.
+6. Configure Google OAuth somente se esse recurso for usado.
 
 As migrations versionadas são aplicadas no deploy por `npm run db:deploy`. O endpoint `/health` pode ser usado como verificação de saúde da API.
 
