@@ -41,6 +41,9 @@ export type DomainErrorCode =
   | 'EMAIL_ALREADY_REGISTERED'
   | 'GOOGLE_OAUTH_NOT_CONFIGURED'
   | 'REPORT_NOT_FOUND'
+  | 'ACCESS_DENIED'
+  | 'USER_NOT_REGISTERED'
+  | 'INVALID_GOOGLE_TOKEN'
 
 export class DomainError extends Error {
   constructor(

@@ -5,7 +5,7 @@ import { CSRF_COOKIE, readCookie, requireAuth, SESSION_COOKIE } from '../auth/mi
 const OAUTH_STATE_COOKIE = 'quiz_oauth_state';
 export function createAuthRoutes(auth: AuthService) {
   const router = Router();
-  router.get('/auth/providers', (_request, response) => response.set('Cache-Control', 'no-store').json({ google: auth.googleEnabled }));
+  router.get('/auth/providers', (_request, response) => response.set('Cache-Control', 'no-store').json({ google: auth.googleEnabled, mock: auth.googleMockEnabled }));
   router.post('/auth/register', async (request, response, next) => {
     if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
     try { const result = await auth.register(request.body?.email, request.body?.password); setSessionCookies(response, result, auth); response.status(201).set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken }); }
@@ -15,6 +15,14 @@ export function createAuthRoutes(auth: AuthService) {
     if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
     try { const result = await auth.login(request.body?.email, request.body?.password); setSessionCookies(response, result, auth); response.set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken }); }
     catch (error) { next(error); }
+  });
+  router.post('/auth/google', async (request, response, next) => {
+    if (!auth.isAllowedOrigin(request.get('origin'))) { response.status(403).json({ error: { code: 'ORIGIN_REJECTED', message: 'Origem não autorizada.' } }); return; }
+    try {
+      const result = await auth.loginWithGoogleIdToken(request.body?.credential ?? request.body?.idToken);
+      setSessionCookies(response, result, auth);
+      response.set('Cache-Control', 'no-store').json({ user: result.user, csrfToken: result.csrfToken });
+    } catch (error) { next(error); }
   });
   router.get('/auth/google', async (request, response, next) => {
     try {
