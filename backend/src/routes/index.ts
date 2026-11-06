@@ -35,6 +35,6 @@ const gameRepository = new InMemoryGameRepository();
 const reportService = new GameReportService(new PrismaGameReportRepository(prisma), gameRepository, roomService, quizService);
 export const gameService = new GameService(gameRepository, roomService, quizService, { onFinished: (game) => reportService.capture(game) });
 routes.use(createQuizRoutes(new QuizController(quizService), requireAuth));
-routes.use(createRoomRoutes(new RoomController(roomService, quizService)));
+routes.use(createRoomRoutes(new RoomController(roomService, quizService), requireAuth));
 routes.use(createGameRoutes(new GameController(gameService)));
 routes.use(createReportRoutes(new ReportController(reportService), requireAuth));

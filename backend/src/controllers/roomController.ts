@@ -71,8 +71,8 @@ export class RoomController {
       if (typeof body !== 'object' || body === null || Array.isArray(body) || Object.keys(body).some((key) => !['name', 'avatarCharacterId', 'avatarAccessoryId'].includes(key))) throw new DomainError('INVALID_PLAYER_NAME', 400, 'Informe os dados válidos do jogador.');
       const record = body as Record<string, unknown>;
       if (typeof record.name !== 'string') throw new DomainError('INVALID_PLAYER_NAME', 400, 'Informe um nome válido.');
-      if (!request.auth) throw new DomainError('FORBIDDEN', 401, 'Entre com sua conta para participar da partida.');
-      const joined = await this.roomService.joinRoom(readRouteParam(request.params, 'pin'), record.name, record.avatarCharacterId, record.avatarAccessoryId, { userId: request.auth.user.id, email: request.auth.user.email });
+      const identity = request.auth ? { userId: request.auth.user.id, email: request.auth.user.email } : undefined;
+      const joined = await this.roomService.joinRoom(readRouteParam(request.params, 'pin'), record.name, record.avatarCharacterId, record.avatarAccessoryId, identity);
       response.status(201).json({ room: publicRoom(joined.room), player: publicPlayer(joined.player), playerToken: joined.playerToken });
     } catch (error) {
       next(error);
