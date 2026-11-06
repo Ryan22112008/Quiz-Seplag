@@ -1,8 +1,7 @@
-import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, open, rename, unlink } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { pipeline } from 'node:stream/promises';
 import { Router, type ErrorRequestHandler, type RequestHandler } from 'express';
 import multer from 'multer';
 
@@ -59,9 +58,16 @@ const serveImage: RequestHandler = async (request, response, next) => {
   const filename = request.params.filename;
   if (typeof filename !== 'string' || !/^[a-f0-9-]{36}\.(?:png|jpg|webp)$/u.test(filename)) { response.sendStatus(404); return; }
   const mime = filename.endsWith('.png') ? 'image/png' : filename.endsWith('.jpg') ? 'image/jpeg' : 'image/webp';
-  response.set({ 'Content-Type': mime, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'public, max-age=31536000, immutable' });
-  try { await pipeline(createReadStream(join(storageDirectory, filename)), response); }
-  catch (error) { if (!response.headersSent) response.sendStatus(404); else next(error); }
+  try {
+    const image = await readFile(join(storageDirectory, filename));
+    response.set({ 'Content-Type': mime, 'Content-Length': String(image.byteLength), 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'public, max-age=31536000, immutable' });
+    response.status(200).send(image);
+  } catch (error) {
+    const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+    if (code === 'ENOENT') { response.sendStatus(404); return; }
+    if (code === 'EACCES' || code === 'EIO') { response.sendStatus(503); return; }
+    next(error);
+  }
 };
 
 function detectImageExtension(header: Buffer): 'png' | 'jpg' | 'webp' | undefined {
