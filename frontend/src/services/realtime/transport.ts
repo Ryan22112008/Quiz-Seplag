@@ -40,7 +40,7 @@ export class WebSocketRealtimeTransport implements RealtimeTransport {
           for (const handler of this.handlers) handler({ type: 'REALTIME_ERROR', payload: { code: 'INVALID_SERVER_MESSAGE', message: reason } });
         }
       };
-      socket.onerror = () => { useRealtimeStore.getState().setConnectionState('error'); if (!opened) { window.clearTimeout(timeout); reject(new Error('Não foi possível conectar à sala. Confira sua internet e tente novamente.')); } };
+      socket.onerror = () => { useRealtimeStore.getState().setConnectionState('error'); if (!opened) { window.clearTimeout(timeout); reject(new Error('Não foi possível abrir a conexão em tempo real com a sala. Verifique a conexão e tente novamente.')); } };
       socket.onclose = () => {
         window.clearTimeout(timeout);
         if (!opened) reject(new Error('A conexão realtime foi encerrada antes de conectar.'));

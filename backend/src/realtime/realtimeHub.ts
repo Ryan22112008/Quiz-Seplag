@@ -42,9 +42,13 @@ export class RealtimeHub {
         void (async () => {
           if (info.origin && !allowedOrigins.includes(info.origin)) { callback(false, 403, 'Origem não permitida.'); return; }
           if (this.authenticate) {
-            const identity = await this.authenticate(info.req.headers.cookie);
-            if (!identity) { callback(false, 401, 'Entre com sua conta para participar da partida.'); return; }
-            (info.req as AuthenticatedUpgradeRequest).quizUser = identity;
+            // Mobile browsers may omit cross-site account cookies. The socket
+            // can still be authenticated after upgrade with a room-scoped
+            // player or host capability in SUBSCRIBE_GAME.
+            try {
+              const identity = await this.authenticate(info.req.headers.cookie);
+              if (identity) (info.req as AuthenticatedUpgradeRequest).quizUser = identity;
+            } catch { /* Capability validation remains available without the account cookie. */ }
           }
           callback(true);
         })().catch(() => callback(false, 503, 'Não foi possível validar sua sessão.'));
@@ -97,6 +101,7 @@ export class RealtimeHub {
     switch (command.type) {
       case 'CREATE_ROOM': {
         this.requireUnbound(socket);
+        if (this.authenticate && !this.context(socket).user) this.fail('UNAUTHENTICATED', 'Entre com sua conta para criar uma sala.');
         const { room, hostToken } = await this.services.roomService.createRoomWithHostToken(command.payload.quizId);
         this.bind(socket, room.pin, 'host');
         this.send(socket, { type: 'ROOM_CREATED', payload: { room: toClientRoom(room), hostToken } });
@@ -121,7 +126,7 @@ export class RealtimeHub {
         if (command.payload.playerId !== undefined && command.payload.playerToken !== undefined) {
           const player = room.players.find((item) => item.id === command.payload.playerId);
           if (!player) this.fail('PLAYER_NOT_FOUND', 'Jogador não pertence a esta sala.');
-          if (this.authenticate && (!context.user || player.userId !== context.user.id)) this.fail('FORBIDDEN', 'Entre com a conta associada a este participante.');
+          if (context.user && player.userId && player.userId !== context.user.id) this.fail('FORBIDDEN', 'Esta credencial pertence a outro participante.');
           if (!this.services.roomService.isValidPlayerToken(room.id, player.id, command.payload.playerToken)) this.fail('FORBIDDEN', 'A identidade do jogador não foi comprovada.');
           role = 'player';
           playerId = player.id;
