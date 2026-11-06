@@ -76,6 +76,13 @@ export function JoinGamePage() {
 
   useEffect(() => {
     if (validation.pin !== pin || validation.status !== 'valid' || !pin || !playerId || existingRoomPin !== pin) return;
+    // The player id is shared through localStorage, while its capability is
+    // intentionally scoped to the tab in sessionStorage. A QR opened in a new
+    // tab can therefore have a stale id without the credential needed to resume.
+    if (!playerToken) {
+      usePlayerStore.getState().clearPlayer();
+      return;
+    }
     let current = true;
     void subscribeRoom(pin, playerId, undefined, playerToken).then(() => { if (current) navigate(`/jogar/${pin}/aguardando`, { replace: true }); }).catch((error: unknown) => {
       if (hasErrorCode(error, 'PLAYER_NOT_FOUND')) usePlayerStore.getState().clearPlayer();
