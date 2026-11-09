@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Check, Clock3, Copy, Folder, FolderPlus, Grid2X2, Heart, List, MoreHorizontal, Search, Trash2, Undo2, BookMarked, GraduationCap, FilePenLine } from 'lucide-react';
+import { BookOpen, Check, Clock3, Copy, Folder, FolderPlus, Grid2X2, Heart, List, MoreHorizontal, Search, Trash2, Undo2, FilePenLine } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +12,7 @@ import { imageSource } from '@/lib/imageSource';
 import type { Quiz } from '@/types/quiz';
 
 type MainTab = 'recent' | 'drafts' | 'favorites' | 'shared';
-type LibrarySection = 'kahoots' | 'stories' | 'courses' | 'trash';
+type LibrarySection = 'kahoots' | 'trash';
 interface LibraryPreferences { favorites: string[]; folders: string[]; quizFolders: Record<string, string> }
 const emptyPreferences: LibraryPreferences = { favorites: [], folders: [], quizFolders: {} };
 const isQuizDraft = (quiz: Quiz) => quiz.isDraft === true || quiz.questions.length === 0;
@@ -21,8 +21,7 @@ const tabs: Array<{ id: MainTab; label: string }> = [
   { id: 'favorites', label: 'Favoritos' }, { id: 'shared', label: 'Compartilhados comigo' },
 ];
 const sections: Array<{ id: LibrarySection; label: string; Icon: typeof BookOpen }> = [
-  { id: 'kahoots', label: 'Quizzes', Icon: BookOpen }, { id: 'stories', label: 'Histórias', Icon: BookMarked },
-  { id: 'courses', label: 'Cursos', Icon: GraduationCap },
+  { id: 'kahoots', label: 'Quizzes', Icon: BookOpen },
 ];
 
 function readPreferences(userId: string): LibraryPreferences {
@@ -109,7 +108,6 @@ export function LibraryPage() {
   };
 
   const isTrash = section === 'trash';
-  const unsupported = section !== 'kahoots' && !isTrash;
   const displayedQuizzes = isTrash ? visibleTrash : visibleQuizzes;
   return <main className="min-h-[calc(100vh-4rem)] bg-neutral-50">
     <Container size="xl" className="py-6 sm:py-9">
@@ -133,7 +131,7 @@ export function LibraryPage() {
         </aside>
 
         <section className="min-w-0 rounded-2xl border border-border bg-surface p-4 sm:p-6" aria-label="Conteúdos">
-          {!unsupported && <>
+          <>
             {!isTrash && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border">
               <div role="tablist" aria-label="Filtrar quizzes" className="flex max-w-full gap-1 overflow-x-auto">{tabs.map((item) => <button type="button" role="tab" aria-selected={tab === item.id} key={item.id} onClick={() => { setTab(item.id); setFolder(null); }} className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-semibold ${tab === item.id ? 'border-primary-600 text-primary-800' : 'border-transparent text-neutral-500 hover:text-neutral-800'}`}>{item.label}{item.id === 'drafts' && <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${tab === 'drafts' ? 'bg-primary-100 text-primary-800' : 'bg-neutral-100 text-neutral-600'}`}>{quizzes.filter(isQuizDraft).length}</span>}</button>)}</div>
               <Link to="/criar" className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white hover:bg-primary-700">+ Criar quiz</Link>
@@ -142,10 +140,9 @@ export function LibraryPage() {
               <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" /><Input aria-label="Pesquisar na biblioteca" placeholder="Pesquisar quizzes..." value={query} onChange={(event) => setQuery(event.target.value)} inputClassName="pl-10" /></div>
               <div className="flex items-center gap-1 self-end rounded-xl border border-border p-1 sm:self-auto" aria-label="Modo de visualização"><button aria-label="Visualização em grade" aria-pressed={view === 'grid'} type="button" onClick={() => setView('grid')} className={`rounded-lg p-2 ${view === 'grid' ? 'bg-primary-50 text-primary-800' : 'text-neutral-500 hover:bg-neutral-100'}`}><Grid2X2 className="size-4" /></button><button aria-label="Visualização em lista" aria-pressed={view === 'list'} type="button" onClick={() => setView('list')} className={`rounded-lg p-2 ${view === 'list' ? 'bg-primary-50 text-primary-800' : 'text-neutral-500 hover:bg-neutral-100'}`}><List className="size-4" /></button></div>
             </div>
-          </>}
+          </>
 
-          {unsupported ? <div className="grid min-h-80 place-items-center px-6 text-center"><div className="max-w-sm"><div className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary-50 text-primary-800"><BookOpen className="size-7" /></div><h2 className="type-h3 mt-4 text-neutral-900">Esta categoria ainda não está disponível</h2><p className="type-body-sm mt-2 text-neutral-600">Por enquanto, a Biblioteca organiza quizzes. Outros formatos poderão ser adicionados depois.</p><button type="button" onClick={() => setSection('kahoots')} className="mt-4 text-sm font-bold text-primary-800 hover:underline">Ver meus quizzes</button></div></div>
-            : loading ? <div className="grid min-h-64 place-items-center text-sm text-neutral-500" role="status"><Clock3 className="mr-2 inline size-4 animate-pulse" />Carregando biblioteca…</div>
+          {loading ? <div className="grid min-h-64 place-items-center text-sm text-neutral-500" role="status"><Clock3 className="mr-2 inline size-4 animate-pulse" />Carregando biblioteca…</div>
             : error ? <div className="grid min-h-64 place-items-center text-center"><div><p role="alert" className="text-sm text-danger-700">{error}</p><Button className="mt-3" variant="outline" onClick={() => void load()}>Tentar novamente</Button></div></div>
             : displayedQuizzes.length === 0 ? <div className="grid min-h-72 place-items-center px-6 text-center"><div className="max-w-sm"><div className="mx-auto grid size-14 place-items-center rounded-2xl bg-neutral-100 text-neutral-500">{tab === 'drafts' ? <FilePenLine className="size-6" /> : <Search className="size-6" />}</div><h2 className="type-h3 mt-4 text-neutral-900">{isTrash ? 'A lixeira está vazia' : tab === 'drafts' ? 'Nenhum rascunho por enquanto' : tab === 'favorites' ? 'Nenhum quiz favorito ainda' : tab === 'shared' ? 'Nada compartilhado com você' : folder ? 'Esta pasta está vazia' : query ? 'Nenhum quiz encontrado' : 'Sua biblioteca está vazia'}</h2><p className="type-body-sm mt-2 text-neutral-600">{isTrash ? 'Quizzes excluídos aparecerão aqui e poderão ser restaurados.' : tab === 'drafts' ? 'Salve um quiz sem terminar para continuar editando depois.' : tab === 'shared' ? 'Quando alguém compartilhar um quiz com você, ele aparecerá aqui.' : 'Crie seu primeiro quiz para começar a montar sua biblioteca.'}</p>{!isTrash && tab !== 'shared' && <Link to="/criar" className="mt-4 inline-flex rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-700">Criar quiz</Link>}</div></div>
             : <div className={view === 'grid' ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'flex flex-col gap-3'}>{displayedQuizzes.map((quiz) => <QuizCard key={quiz.id} quiz={quiz} userName={user?.name ?? 'Você'} list={view === 'list'} trashed={isTrash} favorite={preferences.favorites.includes(quiz.id)} folders={preferences.folders} currentFolder={preferences.quizFolders[quiz.id] ?? ''} openMenu={openMenu === quiz.id} onMenu={() => setOpenMenu((current) => current === quiz.id ? null : quiz.id)} onFavorite={() => toggleFavorite(quiz.id)} onMove={(name) => { setPreferences((current) => ({ ...current, quizFolders: { ...current.quizFolders, [quiz.id]: name } })); setOpenMenu(null); }} onDuplicate={() => void duplicate(quiz)} onTrash={() => void moveToTrash(quiz)} onRestore={() => void restore(quiz)} onPermanentDelete={() => void permanentlyDelete(quiz)} />)}</div>}
